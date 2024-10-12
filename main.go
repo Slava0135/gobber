@@ -10,4 +10,5 @@ func main() {
 	constraints.BitwiseOperations()
 	constraints.AdvancedBitwise()
 	constraints.CombinedBitwise()
+	constraints.NestedBitwise()
 }

@@ -101,13 +101,13 @@ func mixedOperations(a int, b float64) float64 {
 		result.GE(float10),
 	)
 
-	solve(solver, "(a % 2 /= 0) && (result < 10)",
+	solve(solver, "(a % 2 != 0) && (result < 10)",
 		a.SToInt().Mod(int2).Eq(int0),
 		result.NE(a.SToFloat(floatSort).Add(b)),
 		result.LT(float10),
 	)
 
-	solve(solver, "(a % 2 /= 0) && (result >= 10)",
+	solve(solver, "(a % 2 != 0) && (result >= 10)",
 		a.SToInt().Mod(int2).Eq(int0),
 		result.NE(a.SToFloat(floatSort).Add(b)),
 		result.GE(float10),
@@ -234,6 +234,48 @@ func combinedBitwise(a int, b int) int {
 		a.And(b).NE(int0),
 		result.Eq(a.And(b)),
 		result.SToInt().LE(int10.SToInt()),
+	)
+}
+
+func NestedBitwise() {
+	src := `
+func nestedBitwise(a int, b int) int {
+	if a < 0 {
+		return -1
+	}
+
+	if b < 0 {
+		return a ^ 0
+	}
+
+	if a&b == 0 {
+		return a | b
+	} else {
+		return a & b
+	}
+}`
+	fmt.Println(src)
+
+	ctx := z3.NewContext(nil)
+	a := ctx.BVConst("a", IntSize)
+	b := ctx.BVConst("b", IntSize)
+	intSort := ctx.BVSort(IntSize)
+
+	int0 := ctx.FromInt(0, intSort).(z3.BV)
+
+	solver := z3.NewSolver(ctx)
+
+	solve(solver, "a < 0", a.SToInt().LT(int0.SToInt()))
+	solve(solver, "(a >= 0) && (b < 0)", a.SToInt().GE(int0.SToInt()), b.SToInt().LT(int0.SToInt()))
+	solve(solver, "(a >= 0) && (b >= 0) && (a&b == 0)",
+		a.SToInt().GE(int0.SToInt()),
+		b.SToInt().GE(int0.SToInt()),
+		a.And(b).Eq(int0),
+	)
+	solve(solver, "(a >= 0) && (b >= 0) && (a&b != 0)",
+		a.SToInt().GE(int0.SToInt()),
+		b.SToInt().GE(int0.SToInt()),
+		a.And(b).NE(int0),
 	)
 }
 
