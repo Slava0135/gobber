@@ -6,4 +6,5 @@ func main() {
 	constraints.IntegerOperations()
 	constraints.FloatOperations()
 	constraints.MixedOperations()
+	constraints.NestedConditions()
 }

@@ -40,11 +40,11 @@ func MixedOperations() {
 	b := ctx.Const("b", floatSort).(z3.Float)
 	result := ctx.Const("result", floatSort).(z3.Float)
 
-	solver := z3.NewSolver(ctx)
-
 	int0 := ctx.FromInt(0, ctx.IntSort()).(z3.Int)
 	int2 := ctx.FromInt(2, ctx.IntSort()).(z3.Int)
 	float10 := ctx.FromInt(10, floatSort).(z3.Float)
+    
+	solver := z3.NewSolver(ctx)
 
 	solve(solver, "(a % 2 == 0) && (result < 10)",
 		a.SToInt().Mod(int2).Eq(int0),
@@ -69,6 +69,22 @@ func MixedOperations() {
 		result.NE(a.SToFloat(floatSort).Add(b)),
 		result.GE(float10),
 	)
+}
+
+func NestedConditions() {
+    ctx := z3.NewContext(nil)
+	floatSort := ctx.FloatSort(11, 53)
+	a := ctx.BVConst("a", IntSize)
+	b := ctx.Const("b", floatSort).(z3.Float)
+
+    int0 := ctx.FromInt(0, ctx.IntSort()).(z3.Int)
+	float0 := ctx.FromInt(0, floatSort).(z3.Float)
+
+    solver := z3.NewSolver(ctx)
+
+    solve(solver, "a < 0 && b < 0", a.SToInt().LT(int0), b.LT(float0))
+    solve(solver, "a < 0 && b >= 0", a.SToInt().LT(int0), b.GE(float0))
+    solve(solver, "a > 0", a.SToInt().GE(int0))
 }
 
 func solve(solver *z3.Solver, path string, asserts ...z3.Bool) {
