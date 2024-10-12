@@ -48,6 +48,39 @@ func complexMagnitude(a complex128) float64 {
 	printSrc(src)
 }
 
+func ComplexComparison() {
+	src := `
+func complexComparison(a complex128, b complex128) string {
+	magA := complexMagnitude(a)
+	magB := complexMagnitude(b)
+
+	if magA > magB {
+		return "Magnitude of a is greater than b"
+	} else if magA < magB {
+		return "Magnitude of b is greater than a"
+	}
+	return "Magnitudes are equal"
+}`
+	printSrc(src)
+
+	ctx := z3.NewContext(nil)
+	floatSort := ctx.FloatSort(11, 53)
+
+	a := complexConst(ctx, "a", floatSort)
+	b := complexConst(ctx, "b", floatSort)
+	magA := ctx.Const("magA", floatSort).(z3.Float)
+	magB := ctx.Const("magB", floatSort).(z3.Float)
+
+	solver := z3.NewSolver(ctx)
+
+	assertMagA := magA.Eq(a.real.Mul(a.real).Add(a.imag.Mul(a.imag)))
+	assertMagB := magB.Eq(b.real.Mul(b.real).Add(b.imag.Mul(b.imag)))
+
+	solve(solver, "magA > magB", assertMagA, assertMagB, magA.GT(magB))
+	solve(solver, "!(magA > magB) && (magA < magB)", assertMagA, assertMagB, magA.GT(magB).Not(), magA.LT(magB))
+	solve(solver, "!(magA > magB) && !(magA < magB)", assertMagA, assertMagB, magA.GT(magB).Not(), magA.LT(magB).Not())
+}
+
 func ComplexOperations() {
 	src := `
 func complexOperations(a complex128, b complex128) complex128 {

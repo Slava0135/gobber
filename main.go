@@ -14,6 +14,7 @@ func main() {
 
 	constraints.BasicComplexOperations()
 	constraints.ComplexMagnitude()
+	constraints.ComplexComparison()
 	constraints.ComplexOperations()
 	constraints.NestedComplexOperations()
 }
