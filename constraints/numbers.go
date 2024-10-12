@@ -109,6 +109,18 @@ func BitwiseOperations() {
 	)
 }
 
+func AdvancedBitwise() {
+	ctx := z3.NewContext(nil)
+	a := ctx.BVConst("a", IntSize)
+	b := ctx.BVConst("b", IntSize)
+
+	solver := z3.NewSolver(ctx)
+
+	solve(solver, "a > b", a.SToInt().GT(b.SToInt()))
+	solve(solver, "!(a > b) && (a < b)", a.SToInt().GT(b.SToInt()).Not(), a.SToInt().LT(b.SToInt()))
+	solve(solver, "!(a > b) && !(a < b)", a.SToInt().GT(b.SToInt()).Not(), a.SToInt().LT(b.SToInt()).Not())
+}
+
 func solve(solver *z3.Solver, path string, asserts ...z3.Bool) {
 	fmt.Println(":: " + path)
 	for _, v := range asserts {

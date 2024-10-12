@@ -8,4 +8,5 @@ func main() {
 	constraints.MixedOperations()
 	constraints.NestedConditions()
 	constraints.BitwiseOperations()
+	constraints.AdvancedBitwise()
 }
