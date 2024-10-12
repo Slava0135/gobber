@@ -7,4 +7,5 @@ func main() {
 	constraints.FloatOperations()
 	constraints.MixedOperations()
 	constraints.NestedConditions()
+	constraints.BitwiseOperations()
 }
