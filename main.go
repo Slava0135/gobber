@@ -13,4 +13,7 @@ func main() {
 	constraints.NestedBitwise()
 
 	constraints.BasicComplexOperations()
+	constraints.ComplexMagnitude()
+	constraints.ComplexOperations()
+	constraints.NestedComplexOperations()
 }
