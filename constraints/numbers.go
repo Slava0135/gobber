@@ -6,6 +6,8 @@ import (
 	"github.com/aclements/go-z3/z3"
 )
 
+const IntSize = 64
+
 func IntegerOperations() {
 	ctx := z3.NewContext(nil)
 	a := ctx.IntConst("a")
@@ -13,41 +15,9 @@ func IntegerOperations() {
 
 	solver := z3.NewSolver(ctx)
 
-	fmt.Println(":: a > b")
-	solver.Assert(a.GT(b))
-	sat, err := solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: !(a > b) && (a < b)")
-	solver.Assert(a.GT(b).Not().And(a.LT(b)))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: !(a > b) && !(a < b)")
-	solver.Assert(a.GT(b).Not().And(a.LT(b).Not()))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
+	solve(solver, "a > b", a.GT(b))
+	solve(solver, "!(a > b) && (a < b)", a.GT(b).Not(), a.LT(b))
+	solve(solver, "!(a > b) && !(a < b)", a.GT(b).Not(), a.LT(b).Not())
 }
 
 func FloatOperations() {
@@ -58,47 +28,15 @@ func FloatOperations() {
 
 	solver := z3.NewSolver(ctx)
 
-	fmt.Println(":: x > y")
-	solver.Assert(x.GT(y))
-	sat, err := solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: !(x > y) && (x < y)")
-	solver.Assert(x.GT(y).Not().And(x.LT(y)))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: !(x > y) && !(x < y)")
-	solver.Assert(x.GT(y).Not().And(x.LT(y).Not()))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
+	solve(solver, "x > y", x.GT(y))
+	solve(solver, "!(x > y) && (x < y)", x.GT(y).Not(), x.LT(y))
+	solve(solver, "!(x > y) && !(x < y)", x.GT(y).Not(), x.LT(y).Not())
 }
 
 func MixedOperations() {
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
-	a := ctx.BVConst("a", 64)
+	a := ctx.BVConst("a", IntSize)
 	b := ctx.Const("b", floatSort).(z3.Float)
 	result := ctx.Const("result", floatSort).(z3.Float)
 
@@ -108,53 +46,37 @@ func MixedOperations() {
 	int2 := ctx.FromInt(2, ctx.IntSort()).(z3.Int)
 	float10 := ctx.FromInt(10, floatSort).(z3.Float)
 
-	fmt.Println(":: (a % 2 == 0) && (result < 10)")
-	solver.Assert(a.SToInt().Mod(int2).Eq(int0))
-	solver.Assert(result.Eq(a.SToFloat(floatSort).Add(b)))
-	solver.Assert(result.LT(float10))
+	solve(solver, "(a % 2 == 0) && (result < 10)",
+		a.SToInt().Mod(int2).Eq(int0),
+		result.Eq(a.SToFloat(floatSort).Add(b)),
+		result.LT(float10),
+	)
+
+	solve(solver, "(a % 2 == 0) && (result >= 10)",
+		a.SToInt().Mod(int2).Eq(int0),
+		result.Eq(a.SToFloat(floatSort).Add(b)),
+		result.GE(float10),
+	)
+
+	solve(solver, "(a % 2 /= 0) && (result < 10)",
+		a.SToInt().Mod(int2).Eq(int0),
+		result.NE(a.SToFloat(floatSort).Add(b)),
+		result.LT(float10),
+	)
+
+	solve(solver, "(a % 2 /= 0) && (result >= 10)",
+		a.SToInt().Mod(int2).Eq(int0),
+		result.NE(a.SToFloat(floatSort).Add(b)),
+		result.GE(float10),
+	)
+}
+
+func solve(solver *z3.Solver, path string, asserts ...z3.Bool) {
+	fmt.Println(":: " + path)
+	for _, v := range asserts {
+		solver.Assert(v)
+	}
 	sat, err := solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: (a % 2 /= 0) && (result < 10)")
-	solver.Assert(a.SToInt().Mod(int2).NE(int0))
-	solver.Assert(result.Eq(a.SToFloat(floatSort).Add(b)))
-	solver.Assert(result.LT(float10))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: (a % 2 == 0) && (result >= 10)")
-	solver.Assert(a.SToInt().Mod(int2).Eq(int0))
-	solver.Assert(result.Eq(a.SToFloat(floatSort).Add(b)))
-	solver.Assert(result.GE(float10))
-	sat, err = solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-
-	fmt.Println(":: (a % 2 /= 0) && (result >= 10)")
-	solver.Assert(a.SToInt().Mod(int2).NE(int0))
-	solver.Assert(result.Eq(a.SToFloat(floatSort).Add(b)))
-	solver.Assert(result.GE(float10))
-	sat, err = solver.Check()
 	if err != nil {
 		panic(err)
 	}
