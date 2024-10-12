@@ -2,6 +2,7 @@ package constraints
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aclements/go-z3/z3"
 )
@@ -19,7 +20,7 @@ func integerOperations(a int, b int) int {
 		return a * b
 	}
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	a := ctx.IntConst("a")
@@ -42,7 +43,7 @@ func floatOperations(x float64, y float64) float64 {
 	}
 	return 0.0
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
@@ -75,7 +76,7 @@ func mixedOperations(a int, b float64) float64 {
 
 	return result
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
@@ -125,7 +126,7 @@ func nestedConditions(a int, b float64) float64 {
 	}
 	return float64(a) + b
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
@@ -152,7 +153,7 @@ func bitwiseOperations(a int, b int) int {
 	}
 	return a ^ b
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	a := ctx.BVConst("a", IntSize)
@@ -185,7 +186,7 @@ func advancedBitwise(a int, b int) int {
 	}
 	return a ^ b
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	a := ctx.BVConst("a", IntSize)
@@ -211,7 +212,7 @@ func combinedBitwise(a int, b int) int {
 		return result
 	}
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	a := ctx.BVConst("a", IntSize)
@@ -254,7 +255,7 @@ func nestedBitwise(a int, b int) int {
 		return a & b
 	}
 }`
-	fmt.Println(src)
+	printSrc(src)
 
 	ctx := z3.NewContext(nil)
 	a := ctx.BVConst("a", IntSize)
@@ -293,4 +294,18 @@ func solve(solver *z3.Solver, path string, asserts ...z3.Bool) {
 	}
 	fmt.Println(solver.Model())
 	solver.Reset()
+}
+
+func printSrc(src string) {
+	maxLen := 0
+	for _, line := range strings.Split(src, "\n") {
+		len := len(line)
+		if len > maxLen {
+			maxLen = len
+		}
+	}
+	fmt.Print(strings.Repeat("%", maxLen))
+	fmt.Println(src)
+	fmt.Println(strings.Repeat("%", maxLen))
+	fmt.Println()
 }
