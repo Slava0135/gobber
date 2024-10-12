@@ -9,4 +9,5 @@ func main() {
 	constraints.NestedConditions()
 	constraints.BitwiseOperations()
 	constraints.AdvancedBitwise()
+	constraints.CombinedBitwise()
 }
