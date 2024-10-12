@@ -1,13 +1,8 @@
 package constraints
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/aclements/go-z3/z3"
 )
-
-const IntSize = 64
 
 func IntegerOperations() {
 	src := `
@@ -80,7 +75,7 @@ func mixedOperations(a int, b float64) float64 {
 
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
-	a := ctx.BVConst("a", IntSize)
+	a := ctx.BVConst("a", intSize)
 	b := ctx.Const("b", floatSort).(z3.Float)
 	result := ctx.Const("result", floatSort).(z3.Float)
 
@@ -130,7 +125,7 @@ func nestedConditions(a int, b float64) float64 {
 
 	ctx := z3.NewContext(nil)
 	floatSort := ctx.FloatSort(11, 53)
-	a := ctx.BVConst("a", IntSize)
+	a := ctx.BVConst("a", intSize)
 	b := ctx.Const("b", floatSort).(z3.Float)
 
 	int0 := ctx.FromInt(0, ctx.IntSort()).(z3.Int)
@@ -156,9 +151,9 @@ func bitwiseOperations(a int, b int) int {
 	printSrc(src)
 
 	ctx := z3.NewContext(nil)
-	a := ctx.BVConst("a", IntSize)
-	b := ctx.BVConst("b", IntSize)
-	intSort := ctx.BVSort(IntSize)
+	a := ctx.BVConst("a", intSize)
+	b := ctx.BVConst("b", intSize)
+	intSort := ctx.BVSort(intSize)
 
 	int0 := ctx.FromInt(0, intSort).(z3.BV)
 	int1 := ctx.FromInt(1, intSort).(z3.BV)
@@ -189,8 +184,8 @@ func advancedBitwise(a int, b int) int {
 	printSrc(src)
 
 	ctx := z3.NewContext(nil)
-	a := ctx.BVConst("a", IntSize)
-	b := ctx.BVConst("b", IntSize)
+	a := ctx.BVConst("a", intSize)
+	b := ctx.BVConst("b", intSize)
 
 	solver := z3.NewSolver(ctx)
 
@@ -215,10 +210,10 @@ func combinedBitwise(a int, b int) int {
 	printSrc(src)
 
 	ctx := z3.NewContext(nil)
-	a := ctx.BVConst("a", IntSize)
-	b := ctx.BVConst("b", IntSize)
-	result := ctx.BVConst("result", IntSize)
-	intSort := ctx.BVSort(IntSize)
+	a := ctx.BVConst("a", intSize)
+	b := ctx.BVConst("b", intSize)
+	result := ctx.BVConst("result", intSize)
+	intSort := ctx.BVSort(intSize)
 
 	int0 := ctx.FromInt(0, intSort).(z3.BV)
 	int10 := ctx.FromInt(10, intSort).(z3.BV)
@@ -258,9 +253,9 @@ func nestedBitwise(a int, b int) int {
 	printSrc(src)
 
 	ctx := z3.NewContext(nil)
-	a := ctx.BVConst("a", IntSize)
-	b := ctx.BVConst("b", IntSize)
-	intSort := ctx.BVSort(IntSize)
+	a := ctx.BVConst("a", intSize)
+	b := ctx.BVConst("b", intSize)
+	intSort := ctx.BVSort(intSize)
 
 	int0 := ctx.FromInt(0, intSort).(z3.BV)
 
@@ -278,34 +273,4 @@ func nestedBitwise(a int, b int) int {
 		b.SToInt().GE(int0.SToInt()),
 		a.And(b).NE(int0),
 	)
-}
-
-func solve(solver *z3.Solver, path string, asserts ...z3.Bool) {
-	fmt.Println(":: " + path)
-	for _, v := range asserts {
-		solver.Assert(v)
-	}
-	sat, err := solver.Check()
-	if err != nil {
-		panic(err)
-	}
-	if !sat {
-		panic("unexpected unsat")
-	}
-	fmt.Println(solver.Model())
-	solver.Reset()
-}
-
-func printSrc(src string) {
-	maxLen := 0
-	for _, line := range strings.Split(src, "\n") {
-		len := len(line)
-		if len > maxLen {
-			maxLen = len
-		}
-	}
-	fmt.Print(strings.Repeat("%", maxLen))
-	fmt.Println(src)
-	fmt.Println(strings.Repeat("%", maxLen))
-	fmt.Println()
 }
