@@ -17,4 +17,6 @@ func main() {
 	constraints.ComplexComparison()
 	constraints.ComplexOperations()
 	constraints.NestedComplexOperations()
+
+	constraints.CompareElement()
 }
