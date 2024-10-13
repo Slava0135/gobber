@@ -19,4 +19,5 @@ func main() {
 	constraints.NestedComplexOperations()
 
 	constraints.CompareElement()
+	constraints.CompareAge()
 }
