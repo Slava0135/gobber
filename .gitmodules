@@ -1,0 +1,4 @@
+[submodule "go-z3"]
+	path = go-z3
+	url = https://github.com/Slava0135/go-z3
+	branch = main
