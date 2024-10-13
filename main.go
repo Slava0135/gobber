@@ -30,4 +30,5 @@ func main() {
 
 	subtypes.SubclassesExample()
 	subtypes.SubtypesExample()
+	subtypes.NaiveTypeSolver()
 }

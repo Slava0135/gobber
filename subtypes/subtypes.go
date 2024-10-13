@@ -1,6 +1,10 @@
 package subtypes
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/aclements/go-z3/z3"
+)
 
 type TypeLatticeElement struct {
 	uppers    []*TypeLatticeElement
@@ -22,6 +26,8 @@ var (
 	Seq    TypeLatticeElement = TypeLatticeElement{}
 	List   TypeLatticeElement = TypeLatticeElement{}
 	Null   TypeLatticeElement = TypeLatticeElement{}
+
+	All []*TypeLatticeElement = []*TypeLatticeElement{&Any, &AnyVal, &Short, &Int, &Long, &Char, &AnyRef, &String, &Seq, &List, &Null}
 )
 
 func (e *TypeLatticeElement) isSubclassOf(other *TypeLatticeElement) bool {
@@ -87,4 +93,74 @@ func SubtypesExample() {
 	fmt.Println("::", "[Int]   <:  [Seq]     >", Int.isSubtypeOf(&Seq))
 	fmt.Println("::", "[List]  <:  [Seq]     >", List.isSubtypeOf(&Seq))
 	fmt.Println()
+}
+
+func NaiveTypeSolver() {
+	ctx := z3.NewContext(nil)
+
+	typeSort := ctx.UninterpretedSort("Type")
+
+	anyT := ctx.Const("Any", typeSort)
+
+	anyValT := ctx.Const("AnyVal", typeSort)
+	shortT := ctx.Const("Short", typeSort)
+	intT := ctx.Const("Int", typeSort)
+	longT := ctx.Const("Long", typeSort)
+	charT := ctx.Const("Char", typeSort)
+
+	anyRefT := ctx.Const("AnyRef", typeSort)
+	stringT := ctx.Const("String", typeSort)
+	seqT := ctx.Const("Seq", typeSort)
+	listT := ctx.Const("List", typeSort)
+	nullT := ctx.Const("Null", typeSort)
+
+	isSubclassOf := ctx.FuncDecl("isSubclassOf", []z3.Sort{typeSort, typeSort}, ctx.BoolSort())
+
+	solver := z3.NewSolver(ctx)
+
+	allT := []z3.Value{anyT, anyValT, shortT, intT, longT, charT, anyRefT, stringT, seqT, listT, nullT}
+	for i := range allT {
+		for j := range allT {
+			if All[i].isSubclassOf(All[j]) {
+				solver.Assert(isSubclassOf.Apply(allT[i], allT[j]).(z3.Bool))
+			} else {
+				solver.Assert(isSubclassOf.Apply(allT[i], allT[j]).(z3.Bool).Not())
+			}
+		}
+	}
+
+	sat, err := solver.Check()
+	if err != nil {
+		panic(err)
+	}
+	if !sat {
+		panic("unexpected unsat")
+	}
+	fmt.Println(solver.Model())
+
+	solver.Push()
+	fmt.Print(":: ", "[List]  isSubclassOf  [Seq]")
+	solver.Assert(isSubclassOf.Apply(listT, seqT).(z3.Bool))
+	sat, err = solver.Check()
+	if err != nil {
+		panic(err)
+	}
+	if !sat {
+		panic("unexpected unsat")
+	}
+	fmt.Println("  > true")
+	solver.Pop()
+
+	solver.Push()
+	fmt.Print(":: ", "[Long]  isSubclassOf  [Int]")
+	solver.Assert(isSubclassOf.Apply(longT, intT).(z3.Bool))
+	sat, err = solver.Check()
+	if err != nil {
+		panic(err)
+	}
+	if sat {
+		panic("unexpected sat")
+	}
+	fmt.Println("  > false")
+	solver.Pop()
 }
