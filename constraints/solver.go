@@ -47,28 +47,62 @@ func solveIncrement(solver *z3.Solver, path string, asserts ...z3.Bool) {
 	solver.Pop()
 }
 
-func solveIncrementWithAssumptions(solver *z3.Solver, path string, assumptions []Assumption, asserts ...z3.Bool) []z3.Bool {
+func solveIncrementWithAssumptions(solver *z3.Solver, path string, assumptions []Assumption, asserts ...z3.Bool) {
 	solver.Push()
 	defer solver.Pop()
+
 	printPath(path)
 	for _, v := range asserts {
 		solver.Assert(v)
 	}
-	fmt.Print(":: assume ::")
-	for _, v := range assumptions {
-		fmt.Print(" " + v.ref.String())
-		solver.AssertAndTrack(v.assume, v.ref)
+
+	assume := func(a []Assumption) {
+		fmt.Print(":: assume ::")
+		for _, v := range a {
+			fmt.Print(" " + v.ref.String())
+			solver.AssertAndTrack(v.assume, v.ref)
+		}
+		fmt.Println()
 	}
-	fmt.Println()
+
+	solver.Push()
+	assume(assumptions)
 	sat, err := solver.Check()
 	if err != nil {
 		panic(err)
 	}
 	if sat {
 		fmt.Println(solver.Model())
-		return nil
+		solver.Pop()
 	} else {
-		return solver.GetUnsatCore()
+		unsatCore := solver.GetUnsatCore()
+		solver.Pop()
+		var remaining []Assumption
+		remaining = append(remaining, assumptions...)
+		for !sat {
+			fmt.Println("unsat core:", unsatCore)
+			var nextRemaining []Assumption
+			for i := range remaining {
+				if remaining[i].ref.String() != unsatCore[len(unsatCore)-1].String() {
+					nextRemaining = append(nextRemaining, remaining[i])
+				}
+			}
+			remaining = nextRemaining
+
+			solver.Push()
+			assume(remaining)
+			sat, err = solver.Check()
+			if err != nil {
+				panic(err)
+			}
+			if sat {
+				fmt.Println(solver.Model())
+				solver.Pop()
+				return
+			}
+			unsatCore = solver.GetUnsatCore()
+			solver.Pop()
+		}
 	}
 }
 

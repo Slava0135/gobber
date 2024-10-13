@@ -1,8 +1,6 @@
 package constraints
 
 import (
-	"fmt"
-
 	"github.com/aclements/go-z3/z3"
 )
 
@@ -47,34 +45,20 @@ func compareAndIncrement(a, b int) int {
 		{c.SToInt().LT(int10.SToInt()), ctx.BoolConst("c < 10")},
 	}
 
-	{
-		solver.Assert(a.SToInt().GT(b.SToInt()))
-		solver.Assert(c.Eq(a.Add(int1)))
-		solver.Assert(c.SToInt().GT(b.SToInt()))
-		unsatCore := solveIncrementWithAssumptions(solver, "(a > b) && (c > b)", assumptions)
-		var remaining []Assumption
-		remaining = append(remaining, assumptions...)
-		for unsatCore != nil {
-			fmt.Println("unsat core:", unsatCore)
-			var nextRemaining []Assumption 
-			for i := range remaining {
-				if assumptions[i].ref.String() != unsatCore[len(unsatCore)-1].String() {
-					nextRemaining = append(nextRemaining, remaining[i])
-				}
-			}
-			remaining = nextRemaining
-			unsatCore = solveIncrementWithAssumptions(solver, "(a > b) && (c > b)", remaining)
-		}
-		fmt.Println(solver.Model())
-	}
-
+	solveIncrementWithAssumptions(solver, "(a > b) && (c > b)", assumptions,
+		a.SToInt().GT(b.SToInt()),
+		c.Eq(a.Add(int1)),
+		c.SToInt().GT(b.SToInt()),
+	)
 	solver.Reset()
+
 	solveIncrementWithAssumptions(solver, "(a > b) && (c <= b)", assumptions,
 		a.SToInt().GT(b.SToInt()),
 		c.Eq(a.Add(int1)),
 		c.SToInt().LE(b.SToInt()),
 	)
-
 	solver.Reset()
+
 	solveIncrementWithAssumptions(solver, "a <= b", assumptions, a.SToInt().GE(b.SToInt()))
+	solver.Reset()
 }
