@@ -21,6 +21,9 @@ func compareAndIncrement(a, b int) int {
 }`
 	printSrc(src)
 
+	// one branch can be reached only through overflow, less bits => faster solving
+	intSize := 8
+
 	ctx := z3.NewContext(nil)
 	intSort := ctx.BVSort(intSize)
 	a := ctx.BVConst("a", intSize)
