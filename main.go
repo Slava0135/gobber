@@ -20,4 +20,6 @@ func main() {
 
 	constraints.CompareElement()
 	constraints.CompareAge()
+
+	constraints.PushPopIncrementality()
 }
