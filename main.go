@@ -1,6 +1,9 @@
 package main
 
-import "slava0135/gobber/constraints"
+import (
+	"slava0135/gobber/constraints"
+	"slava0135/gobber/subtypes"
+)
 
 func main() {
 	constraints.IntegerOperations()
@@ -24,4 +27,7 @@ func main() {
 	constraints.PushPopIncrementality()
 
 	constraints.CompareAndIncrement()
+
+	subtypes.SubclassesExample()
+	subtypes.SubtypesExample()
 }
