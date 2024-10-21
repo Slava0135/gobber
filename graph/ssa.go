@@ -14,6 +14,11 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+type Register interface {
+	Type() types.Type
+	Name() string
+}
+
 func SSA() {
 	os.Chdir("testdata")
 
@@ -47,52 +52,53 @@ func SSA() {
 					fmt.Println(v.String(), "->")
 					for _, v := range v.Instrs {
 						printInstr := func (name string) {
-							fmt.Printf("  [%10s] %s\n", strings.ToUpper(name), v.String())
+							if reg, ok := v.(Register); ok {
+								fmt.Printf("  [%10s] %s:%s <-- %s\n", strings.ToUpper(name), reg.Name(), reg.Type(), v.String())
+							} else {
+								fmt.Printf("  [%10s] %s\n", strings.ToUpper(name), v.String())
+							}
 						}
-						printInstrReg := func (reg string, name string) {
-							fmt.Printf("  [%10s] %s <- %s\n", strings.ToUpper(name), reg, v.String())
-						}
-						switch v := v.(type) {
+						switch v.(type) {
 						case *ssa.Alloc:
-							printInstrReg(v.Name(), "alloc")
+							printInstr("alloc")
 						case *ssa.BinOp:
-							printInstrReg(v.Name(), "binop")
+							printInstr("binop")
 						case *ssa.Call:
-							printInstrReg(v.Name(), "call")
+							printInstr("call")
 						case *ssa.Convert:
-							printInstrReg(v.Name(), "convert")
+							printInstr("convert")
 						case *ssa.Extract:
-							printInstrReg(v.Name(), "extract")
+							printInstr("extract")
 						case *ssa.Field:
-							printInstrReg(v.Name(), "field")
+							printInstr("field")
 						case *ssa.FieldAddr:
-							printInstrReg(v.Name(), "field addr")
+							printInstr("field addr")
 						case *ssa.If:
 							printInstr("if")
 						case *ssa.Index:
-							printInstrReg(v.Name(), "index")
+							printInstr("index")
 						case *ssa.IndexAddr:
-							printInstrReg(v.Name(), "index addr")
+							printInstr("index addr")
 						case *ssa.Jump:
 							printInstr("jump")
 						case *ssa.Lookup:
-							printInstrReg(v.Name(), "lookup")
+							printInstr("lookup")
 						case *ssa.MakeMap:
-							printInstrReg(v.Name(), "make map")
+							printInstr("make map")
 						case *ssa.MakeSlice:
-							printInstrReg(v.Name(), "make slice")
+							printInstr("make slice")
 						case *ssa.MapUpdate:
 							printInstr("map update")
 						case *ssa.Phi:
-							printInstrReg(v.Name(), "phi")
+							printInstr("phi")
 						case *ssa.Return:
 							printInstr("return")
 						case *ssa.Select:
-							printInstrReg(v.Name(), "select")
+							printInstr("select")
 						case *ssa.Store:
 							printInstr("store")
 						case *ssa.UnOp:
-							printInstrReg(v.Name(), "unop")
+							printInstr("unop")
 						default:
 							panic("unknown instruction")
 						}
