@@ -1,6 +1,7 @@
 package graph
 
 import (
+	"fmt"
 	"go/ast"
 	"go/importer"
 	"go/parser"
@@ -21,6 +22,8 @@ func SSA() {
 	}
 
 	for _, tc := range testcases {
+		fmt.Printf(":: building ssa graph for file '%s'\n", tc.Name())
+
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, tc.Name(), nil, 0)
 		if err != nil {
@@ -31,9 +34,20 @@ func SSA() {
 
 		pkg := types.NewPackage("main", "")
 
-		_, _, err = ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset, pkg, files, ssa.PrintFunctions|ssa.BareInits)
+		main, _, err := ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset, pkg, files, 0)
 		if err != nil {
 			panic(err)
 		}
+
+		for _, v := range main.Members {
+			if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
+				fmt.Println("::", fn.Name())
+				for _, v := range fn.Blocks {
+					fmt.Println(v.String(), "->", v.Instrs)
+				}
+			}
+		}
+
+		fmt.Println()
 	}
 }
