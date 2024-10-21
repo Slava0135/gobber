@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"slava0135/gobber/constraints"
+	"slava0135/gobber/graph"
 	"slava0135/gobber/subtypes"
 )
 
@@ -14,6 +15,7 @@ func main() {
 	runPushPop := flag.Bool("pushpop", false, "solve constraints with push-pop incrementality")
 	runSoft := flag.Bool("soft", false, "solve soft constraints")
 	runSubtypes := flag.Bool("subtypes", false, "subtyping encoding")
+	runSSA := flag.Bool("SSA", false, "static single assignment")
 
 	flag.Parse()
 
@@ -55,4 +57,7 @@ func main() {
 		subtypes.NaiveTypeSolver()
 	}
 
+	if *runSSA {
+		graph.SSA()
+	}
 }
