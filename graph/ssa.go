@@ -49,47 +49,50 @@ func SSA() {
 						printInstr := func (name string) {
 							fmt.Printf("  [%10s] %s\n", strings.ToUpper(name), v.String())
 						}
-						switch v.(type) {
+						printInstrReg := func (reg string, name string) {
+							fmt.Printf("  [%10s] %s <- %s\n", strings.ToUpper(name), reg, v.String())
+						}
+						switch v := v.(type) {
 						case *ssa.Alloc:
-							printInstr("alloc")
+							printInstrReg(v.Name(), "alloc")
 						case *ssa.BinOp:
-							printInstr("binop")
+							printInstrReg(v.Name(), "binop")
 						case *ssa.Call:
-							printInstr("call")
+							printInstrReg(v.Name(), "call")
 						case *ssa.Convert:
-							printInstr("convert")
+							printInstrReg(v.Name(), "convert")
 						case *ssa.Extract:
-							printInstr("extract")
+							printInstrReg(v.Name(), "extract")
 						case *ssa.Field:
-							printInstr("field")
+							printInstrReg(v.Name(), "field")
 						case *ssa.FieldAddr:
-							printInstr("field addr")
+							printInstrReg(v.Name(), "field addr")
 						case *ssa.If:
 							printInstr("if")
 						case *ssa.Index:
-							printInstr("index")
+							printInstrReg(v.Name(), "index")
 						case *ssa.IndexAddr:
-							printInstr("index addr")
+							printInstrReg(v.Name(), "index addr")
 						case *ssa.Jump:
 							printInstr("jump")
 						case *ssa.Lookup:
-							printInstr("lookup")
+							printInstrReg(v.Name(), "lookup")
 						case *ssa.MakeMap:
-							printInstr("make map")
+							printInstrReg(v.Name(), "make map")
 						case *ssa.MakeSlice:
-							printInstr("make slice")
+							printInstrReg(v.Name(), "make slice")
 						case *ssa.MapUpdate:
 							printInstr("map update")
 						case *ssa.Phi:
-							printInstr("phi")
+							printInstrReg(v.Name(), "phi")
 						case *ssa.Return:
 							printInstr("return")
 						case *ssa.Select:
-							printInstr("select")
+							printInstrReg(v.Name(), "select")
 						case *ssa.Store:
 							printInstr("store")
 						case *ssa.UnOp:
-							printInstr("unop")
+							printInstrReg(v.Name(), "unop")
 						default:
 							panic("unknown instruction")
 						}
