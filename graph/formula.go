@@ -3,6 +3,8 @@ package graph
 import (
 	"fmt"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Formula interface {
@@ -79,4 +81,12 @@ func (and And) String() string {
 
 func (i If) String() string {
 	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
+}
+
+func toYaml(f Formula) string {
+	d, err := yaml.Marshal(&f)
+	if err != nil {
+		panic(err)
+	}
+	return string(d)
 }

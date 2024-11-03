@@ -125,7 +125,10 @@ func makeFormula(fn *ssa.Function) {
 		}
 	}()
 	f := getBlockFormula(fn.Blocks, 0, make([]bool, len(fn.Blocks)))
+	fmt.Println("::", "logical")
 	fmt.Println(f)
+	fmt.Println("::", "yaml")
+	fmt.Println(toYaml(f))
 }
 
 func removeType(str string) string {
