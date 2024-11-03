@@ -24,6 +24,12 @@ type BinOp struct {
 	Right  Var
 }
 
+type UnOp struct {
+	Result Var
+	Arg    Var
+	Op     Op
+}
+
 type Return struct {
 	Results []Var
 }
@@ -39,15 +45,19 @@ type If struct {
 }
 
 func (v Var) String() string {
-	return v.Name;
+	return v.Name
 }
 
 func (o Op) String() string {
-	return o.Name;
+	return o.Name
 }
 
 func (bo BinOp) String() string {
-	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right);
+	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right)
+}
+
+func (uo UnOp) String() string {
+	return fmt.Sprintf("%s == %s%s", uo.Result, uo.Op, uo.Arg)
 }
 
 func (ret Return) String() string {
@@ -55,7 +65,7 @@ func (ret Return) String() string {
 	for _, r := range ret.Results {
 		s = append(s, r.String())
 	}
-	return fmt.Sprintf("return %s", strings.Join(s, ","));
+	return fmt.Sprintf("return %s", strings.Join(s, ","))
 }
 
 func (and And) String() string {
@@ -63,9 +73,9 @@ func (and And) String() string {
 	for _, subf := range and.SubFormulas {
 		s = append(s, subf.String())
 	}
-	return fmt.Sprintf("(%s)", strings.Join(s, ") && ("));
+	return fmt.Sprintf("(%s)", strings.Join(s, ") && ("))
 }
 
 func (i If) String() string {
-	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else);
+	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
 }

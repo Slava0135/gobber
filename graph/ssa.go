@@ -137,7 +137,6 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 	var subFormulas []Formula
 	for _, v := range block.Instrs {
 		switch v := v.(type) {
-		case *ssa.Alloc:
 		case *ssa.BinOp:
 			subFormulas = append(subFormulas, BinOp{
 				Result: Var{v.Name()},
@@ -145,26 +144,14 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 				Op:     Op{v.Op.String()},
 				Right:  Var{v.Y.Name()},
 			})
-		case *ssa.Call:
-		case *ssa.Convert:
-		case *ssa.Extract:
-		case *ssa.Field:
-		case *ssa.FieldAddr:
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
 				Cond: Var{Name: v.Cond.Name()},
 				Then: getBlockFormula(blocks, block.Succs[0].Index, visited),
 				Else: getBlockFormula(blocks, block.Succs[1].Index, visited),
 			})
-		case *ssa.Index:
-		case *ssa.IndexAddr:
 		case *ssa.Jump:
 			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, visited))
-		case *ssa.Lookup:
-		case *ssa.MakeMap:
-		case *ssa.MakeSlice:
-		case *ssa.MapUpdate:
-		case *ssa.Phi:
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
@@ -173,9 +160,12 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 			subFormulas = append(subFormulas, Return{
 				Results: results,
 			})
-		case *ssa.Select:
-		case *ssa.Store:
 		case *ssa.UnOp:
+			subFormulas = append(subFormulas, UnOp{
+				Result: Var{v.Name()},
+				Arg:    Var{v.X.Name()},
+				Op:     Op{v.Op.String()},
+			})
 		default:
 			panic(fmt.Sprint("[ERROR] unknown instruction:", v.String()))
 		}
