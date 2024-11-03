@@ -124,59 +124,55 @@ func makeFormula(fn *ssa.Function) {
 			fmt.Println(r)
 		}
 	}()
-	constraints := getBlockConstraints(fn.Blocks, 0, make([]bool, len(fn.Blocks)))
-	fmt.Println(constraints)
+	f := getBlockFormula(fn.Blocks, 0, make([]bool, len(fn.Blocks)))
+	fmt.Println(f)
 }
 
-func getBlockConstraints(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) string {
+func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) Formula {
 	if visited[blockIndex] {
 		panic("[ERROR] cycles are not supported!")
 	}
 	visited[blockIndex] = true
 	block := blocks[blockIndex]
-	var constraints []string
+	var subFormulas []Formula
 	for _, v := range block.Instrs {
 		switch v := v.(type) {
 		case *ssa.Alloc:
 		case *ssa.BinOp:
-			constraints = append(constraints, fmt.Sprintf("%s == (%s %s %s)", v.Name(), v.X.Name(), v.Op, v.Y.Name()))
+			subFormulas = append(subFormulas, BinOp{
+				Result: Var{v.Name()},
+				Left:   Var{v.X.Name()},
+				Op:     Op{v.Op.String()},
+				Right:  Var{v.Y.Name()},
+			})
 		case *ssa.Call:
 		case *ssa.Convert:
 		case *ssa.Extract:
 		case *ssa.Field:
 		case *ssa.FieldAddr:
 		case *ssa.If:
-			ifTrue := getBlockConstraints(blocks, block.Succs[0].Index, visited)
-			ifFalse := getBlockConstraints(blocks, block.Succs[1].Index, visited)
-			return fmt.Sprintf(
-				"(%s) &&\n((%s && %s) ||\n(!%s && %s))",
-				strings.Join(constraints, ") && ("),
-				v.Cond.Name(), ifTrue,
-				v.Cond.Name(), ifFalse,
-			)
+			subFormulas = append(subFormulas, If{
+				Cond: Var{Name: v.Cond.Name()},
+				Then: getBlockFormula(blocks, block.Succs[0].Index, visited),
+				Else: getBlockFormula(blocks, block.Succs[1].Index, visited),
+			})
 		case *ssa.Index:
 		case *ssa.IndexAddr:
 		case *ssa.Jump:
-			return fmt.Sprintf(
-				"(%s) && %s",
-				strings.Join(constraints, ") && ("),
-				getBlockConstraints(blocks, block.Succs[0].Index, visited),
-			)
+			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, visited))
 		case *ssa.Lookup:
 		case *ssa.MakeMap:
 		case *ssa.MakeSlice:
 		case *ssa.MapUpdate:
 		case *ssa.Phi:
 		case *ssa.Return:
-			var results []string
+			var results []Var
 			for _, r := range v.Results {
-				results = append(results, r.Name())
+				results = append(results, Var{r.Name()})
 			}
-			return fmt.Sprintf(
-				"(%s) && (return %s)",
-				strings.Join(constraints, ") && ("),
-				strings.Join(results, ","),
-			)
+			subFormulas = append(subFormulas, Return{
+				Results: results,
+			})
 		case *ssa.Select:
 		case *ssa.Store:
 		case *ssa.UnOp:
@@ -184,5 +180,5 @@ func getBlockConstraints(blocks []*ssa.BasicBlock, blockIndex int, visited []boo
 			panic(fmt.Sprint("[ERROR] unknown instruction:", v.String()))
 		}
 	}
-	panic("[ERROR] must reach next block at the end")
+	return And{SubFormulas: subFormulas}
 }
