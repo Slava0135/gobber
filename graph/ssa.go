@@ -143,7 +143,11 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 	if visited[blockIndex] {
 		panic("[ERROR] cycles are not supported!")
 	}
-	visited[blockIndex] = true
+
+	newVisited := make([]bool, len(visited))
+	copy(newVisited, visited)
+	newVisited[blockIndex] = true
+
 	block := blocks[blockIndex]
 	var subFormulas []Formula
 	for _, v := range block.Instrs {
@@ -158,11 +162,11 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
 				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String()},
-				Then: getBlockFormula(blocks, block.Succs[0].Index, visited),
-				Else: getBlockFormula(blocks, block.Succs[1].Index, visited),
+				Then: getBlockFormula(blocks, block.Succs[0].Index, newVisited),
+				Else: getBlockFormula(blocks, block.Succs[1].Index, newVisited),
 			})
 		case *ssa.Jump:
-			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, visited))
+			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, newVisited))
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
