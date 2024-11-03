@@ -184,8 +184,13 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 			}
 			subFormulas = append(subFormulas, Function{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Name: removeArgs(v.Call.String()),
-				Args: args,
+				Name:   removeArgs(v.Call.String()),
+				Args:   args,
+			})
+		case *ssa.Convert:
+			subFormulas = append(subFormulas, Convert{
+				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Arg:    Var{Name: v.X.Name(), Type: v.X.Type().String()},
 			})
 		default:
 			panic(fmt.Sprint("[ERROR] unknown instruction: '", v.String(), "'"))

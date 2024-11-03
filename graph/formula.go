@@ -53,6 +53,11 @@ type Function struct {
 	Args   []Var
 }
 
+type Convert struct {
+	Result Var
+	Arg    Var
+}
+
 func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
@@ -95,6 +100,10 @@ func (f Function) String() string {
 		s = append(s, a.String())
 	}
 	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
+}
+
+func (c Convert) String() string {
+	return fmt.Sprintf("%s as %s", c.Arg, c.Result)
 }
 
 func toYaml(f Formula) string {
