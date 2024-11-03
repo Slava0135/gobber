@@ -47,6 +47,12 @@ type If struct {
 	Else Formula
 }
 
+type Function struct {
+	Result Var
+	Name   string
+	Args   []Var
+}
+
 func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
@@ -81,6 +87,14 @@ func (and And) String() string {
 
 func (i If) String() string {
 	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
+}
+
+func (f Function) String() string {
+	var s []string
+	for _, a := range f.Args {
+		s = append(s, a.String())
+	}
+	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
 }
 
 func toYaml(f Formula) string {

@@ -127,12 +127,16 @@ func makeFormula(fn *ssa.Function) {
 	f := getBlockFormula(fn.Blocks, 0, make([]bool, len(fn.Blocks)))
 	fmt.Println("::", "logical")
 	fmt.Println(f)
-	fmt.Println("::", "yaml")
-	fmt.Println(toYaml(f))
+	// fmt.Println("::", "yaml")
+	// fmt.Println(toYaml(f))
 }
 
 func removeType(str string) string {
 	return strings.Split(str, ":")[0]
+}
+
+func removeArgs(str string) string {
+	return strings.Split(str, "(")[0]
 }
 
 func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) Formula {
@@ -172,6 +176,16 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
 				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
 				Op:     Op{v.Op.String()},
+			})
+		case *ssa.Call:
+			var args []Var
+			for _, a := range v.Call.Args {
+				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type().String()})
+			}
+			subFormulas = append(subFormulas, Function{
+				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Name: removeArgs(v.Call.String()),
+				Args: args,
 			})
 		default:
 			panic(fmt.Sprint("[ERROR] unknown instruction: '", v.String(), "'"))
