@@ -167,7 +167,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 				Op:     Op{v.Op.String()},
 			})
 		default:
-			panic(fmt.Sprint("[ERROR] unknown instruction:", v.String()))
+			panic(fmt.Sprint("[ERROR] unknown instruction: '", v.String(), "'"))
 		}
 	}
 	return And{SubFormulas: subFormulas}
