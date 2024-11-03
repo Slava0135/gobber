@@ -128,6 +128,10 @@ func makeFormula(fn *ssa.Function) {
 	fmt.Println(f)
 }
 
+func removeType(str string) string {
+	return strings.Split(str, ":")[0]
+}
+
 func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) Formula {
 	if visited[blockIndex] {
 		panic("[ERROR] cycles are not supported!")
@@ -139,14 +143,14 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 		switch v := v.(type) {
 		case *ssa.BinOp:
 			subFormulas = append(subFormulas, BinOp{
-				Result: Var{v.Name()},
-				Left:   Var{v.X.Name()},
+				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
+				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
 				Op:     Op{v.Op.String()},
-				Right:  Var{v.Y.Name()},
+				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type().String()},
 			})
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
-				Cond: Var{Name: v.Cond.Name()},
+				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String()},
 				Then: getBlockFormula(blocks, block.Succs[0].Index, visited),
 				Else: getBlockFormula(blocks, block.Succs[1].Index, visited),
 			})
@@ -155,15 +159,15 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
-				results = append(results, Var{r.Name()})
+				results = append(results, Var{Name: removeType(r.Name()), Type: r.Type().String()})
 			}
 			subFormulas = append(subFormulas, Return{
 				Results: results,
 			})
 		case *ssa.UnOp:
 			subFormulas = append(subFormulas, UnOp{
-				Result: Var{v.Name()},
-				Arg:    Var{v.X.Name()},
+				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
+				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
 				Op:     Op{v.Op.String()},
 			})
 		default:

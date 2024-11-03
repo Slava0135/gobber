@@ -11,6 +11,7 @@ type Formula interface {
 
 type Var struct {
 	Name string
+	Type string
 }
 
 type Op struct {
@@ -45,7 +46,7 @@ type If struct {
 }
 
 func (v Var) String() string {
-	return v.Name
+	return v.Name + ":" + v.Type
 }
 
 func (o Op) String() string {
