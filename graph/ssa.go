@@ -156,7 +156,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 			subFormulas = append(subFormulas, BinOp{
 				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
 				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
-				Op:     Op{v.Op.String()},
+				Op:     v.Op.String(),
 				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type().String()},
 			})
 		case *ssa.If:
@@ -179,14 +179,14 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 			subFormulas = append(subFormulas, UnOp{
 				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
 				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
-				Op:     Op{v.Op.String()},
+				Op:     v.Op.String(),
 			})
 		case *ssa.Call:
 			var args []Var
 			for _, a := range v.Call.Args {
 				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type().String()})
 			}
-			subFormulas = append(subFormulas, Function{
+			subFormulas = append(subFormulas, Call{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
 				Name:   removeArgs(v.Call.String()),
 				Args:   args,
