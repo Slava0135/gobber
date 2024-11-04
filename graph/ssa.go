@@ -47,16 +47,27 @@ func SSA() {
 
 		for _, v := range main.Members {
 			if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
-				fmt.Println("::", "analyzing function", "'"+fn.Name()+"'")
-				fmt.Println("::", "printing SSA blocks")
-				printBlocks(fn)
-				fmt.Println("::", "building formula")
-				makeFormula(fn)
+				doSSA(fn)
 			}
 		}
 
 		fmt.Println()
 	}
+}
+
+func doSSA(fn *ssa.Function) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("[ERROR]", r)
+		}
+	}()
+	fmt.Println("::", "analyzing function", "'"+fn.Name()+"'")
+	fmt.Println("::", "printing SSA blocks")
+	printBlocks(fn)
+	fmt.Println("::", "building formula")
+	f := makeFormula(fn)
+	fmt.Println("::", "encoding formula")
+	encodeFormula(f)
 }
 
 func printBlocks(fn *ssa.Function) {
@@ -118,17 +129,13 @@ func printBlocks(fn *ssa.Function) {
 	}
 }
 
-func makeFormula(fn *ssa.Function) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Println(r)
-		}
-	}()
+func makeFormula(fn *ssa.Function) Formula {
 	f := getBlockFormula(fn.Blocks, 0, make([]int, len(fn.Blocks)), 1)
 	fmt.Println("::", "logical")
 	fmt.Println(f)
 	// fmt.Println("::", "yaml")
 	// fmt.Println(toYaml(f))
+	return f
 }
 
 func removeType(str string) string {
@@ -141,7 +148,7 @@ func removeArgs(str string) string {
 
 func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int, depth int) Formula {
 	if visitOrder[blockIndex] > 0 {
-		panic("[ERROR] cycles are not supported!")
+		panic("cycles are not supported!")
 	}
 
 	newVisitOrder := make([]int, len(visitOrder))
@@ -209,8 +216,18 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 				Arg:    Var{Name: v.Edges[mostRecent].Name(), Type: v.Edges[mostRecent].Type().String()},
 			})
 		default:
-			panic(fmt.Sprint("[ERROR] unknown instruction: '", v.String(), "'"))
+			panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))
 		}
 	}
 	return And{SubFormulas: subFormulas}
+}
+
+func encodeFormula(f Formula) {
+	fmt.Println("::", "scanning vars")
+	vars := make(map[string]Var, 0)
+	f.ScanVars(vars)
+	for _, v := range vars {
+		fmt.Print(v, " ")
+	}
+	fmt.Println()
 }

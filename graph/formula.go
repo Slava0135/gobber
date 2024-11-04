@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	intType = "int"
+
 	resultSpecialVar = "$result"
 )
 
@@ -16,6 +18,7 @@ type Formula interface {
 	fmt.Stringer
 
 	Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value
+	ScanVars(vars map[string]Var)
 }
 
 type Var struct {
@@ -72,6 +75,16 @@ func (v Var) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.V
 	panic(fmt.Sprintf("unknown var '%s'", v.Name))
 }
 
+func (v Var) ScanVars(vars map[string]Var) {
+	if oldV, ok := vars[v.Name]; ok {
+		if oldV.Type != v.Type {
+			panic(fmt.Sprintf("variable '%s' can't different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))
+		}
+		return
+	}
+	vars[v.Name] = v
+}
+
 func (bo BinOp) String() string {
 	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right)
 }
@@ -93,6 +106,12 @@ func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z
 	}
 }
 
+func (bo BinOp) ScanVars(vars map[string]Var) {
+	bo.Result.ScanVars(vars)
+	bo.Left.ScanVars(vars)
+	bo.Right.ScanVars(vars)
+}
+
 func (uo UnOp) String() string {
 	return fmt.Sprintf("%s == %s%s", uo.Result, uo.Op, uo.Arg)
 }
@@ -104,6 +123,11 @@ func (uo UnOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
 	}
+}
+
+func (uo UnOp) ScanVars(vars map[string]Var) {
+	uo.Arg.ScanVars(vars)
+	uo.Result.ScanVars(vars)
 }
 
 func (ret Return) String() string {
@@ -124,6 +148,12 @@ func (ret Return) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl)
 	panic("result var not found")
 }
 
+func (ret Return) ScanVars(vars map[string]Var) {
+	for _, v := range ret.Results {
+		v.ScanVars(vars)
+	}
+}
+
 func (and And) String() string {
 	var s []string
 	for _, subf := range and.SubFormulas {
@@ -140,6 +170,12 @@ func (and And) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3
 	return res
 }
 
+func (and And) ScanVars(vars map[string]Var) {
+	for _, f := range and.SubFormulas {
+		f.ScanVars(vars)
+	}
+}
+
 func (i If) String() string {
 	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
 }
@@ -149,6 +185,12 @@ func (i If) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Va
 	var thn = i.Then.Encode(vars, funcs).(z3.Bool)
 	var els = i.Else.Encode(vars, funcs).(z3.Bool)
 	return cond.And(thn).Or(cond.Not().And(els))
+}
+
+func (i If) ScanVars(vars map[string]Var) {
+	i.Cond.ScanVars(vars)
+	i.Then.ScanVars(vars)
+	i.Else.ScanVars(vars)
 }
 
 func (f Call) String() string {
@@ -176,6 +218,13 @@ func (f Call) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.
 	panic(fmt.Sprintf("unknown function '%s'", f.Name))
 }
 
+func (f Call) ScanVars(vars map[string]Var) {
+	f.Result.ScanVars(vars)
+	for _, a := range f.Args {
+		a.ScanVars(vars)
+	}
+}
+
 func (c Convert) String() string {
 	return fmt.Sprintf("%s as %s", c.Arg, c.Result)
 }
@@ -185,11 +234,16 @@ func (c Convert) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) 
 		panic("conversions between types are not supported")
 	}
 	switch c.Result.Type {
-	case "int":
+	case intType:
 		return c.Result.Encode(vars, funcs).(z3.Int).Eq(c.Arg.Encode(vars, funcs).(z3.Int))
 	default:
 		panic(fmt.Sprintf("unsupported type '%s'", c.Result.Type))
 	}
+}
+
+func (c Convert) ScanVars(vars map[string]Var) {
+	c.Arg.ScanVars(vars)
+	c.Result.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {
