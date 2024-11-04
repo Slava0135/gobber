@@ -22,8 +22,9 @@ type Formula interface {
 }
 
 type Var struct {
-	Name string
-	Type string
+	Name     string
+	Type     string
+	Constant bool
 }
 
 type BinOp struct {
@@ -76,6 +77,9 @@ func (v Var) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.V
 }
 
 func (v Var) ScanVars(vars map[string]Var) {
+	if v.Constant {
+		return
+	}
 	if oldV, ok := vars[v.Name]; ok {
 		if oldV.Type != v.Type {
 			panic(fmt.Sprintf("variable '%s' can't different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))

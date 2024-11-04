@@ -142,6 +142,10 @@ func removeType(str string) string {
 	return strings.Split(str, ":")[0]
 }
 
+func isConstant(str string) bool {
+	return strings.Contains(str, ":")
+}
+
 func removeArgs(str string) string {
 	return strings.Split(str, "(")[0]
 }
@@ -162,13 +166,13 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.BinOp:
 			subFormulas = append(subFormulas, BinOp{
 				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
-				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
+				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
 				Op:     v.Op.String(),
-				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type().String()},
+				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type().String(), Constant: isConstant(v.Y.Name())},
 			})
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
-				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String()},
+				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String(), Constant: isConstant(v.Cond.Name())},
 				Then: getBlockFormula(blocks, block.Succs[0].Index, newVisitOrder, depth+1),
 				Else: getBlockFormula(blocks, block.Succs[1].Index, newVisitOrder, depth+1),
 			})
@@ -177,7 +181,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
-				results = append(results, Var{Name: removeType(r.Name()), Type: r.Type().String()})
+				results = append(results, Var{Name: removeType(r.Name()), Type: r.Type().String(), Constant: isConstant(r.Name())})
 			}
 			subFormulas = append(subFormulas, Return{
 				Results: results,
@@ -185,13 +189,13 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.UnOp:
 			subFormulas = append(subFormulas, UnOp{
 				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
-				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String()},
+				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
 				Op:     v.Op.String(),
 			})
 		case *ssa.Call:
 			var args []Var
 			for _, a := range v.Call.Args {
-				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type().String()})
+				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type().String(), Constant: isConstant(a.Name())})
 			}
 			subFormulas = append(subFormulas, Call{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
@@ -201,7 +205,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.Convert:
 			subFormulas = append(subFormulas, Convert{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Arg:    Var{Name: v.X.Name(), Type: v.X.Type().String()},
+				Arg:    Var{Name: v.X.Name(), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
 			})
 		case *ssa.Phi:
 			mostRecent := 0
