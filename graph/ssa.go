@@ -124,7 +124,7 @@ func makeFormula(fn *ssa.Function) {
 			fmt.Println(r)
 		}
 	}()
-	f := getBlockFormula(fn.Blocks, 0, make([]bool, len(fn.Blocks)))
+	f := getBlockFormula(fn.Blocks, 0, make([]int, len(fn.Blocks)), 1)
 	fmt.Println("::", "logical")
 	fmt.Println(f)
 	// fmt.Println("::", "yaml")
@@ -139,14 +139,14 @@ func removeArgs(str string) string {
 	return strings.Split(str, "(")[0]
 }
 
-func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) Formula {
-	if visited[blockIndex] {
+func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int, depth int) Formula {
+	if visitOrder[blockIndex] > 0 {
 		panic("[ERROR] cycles are not supported!")
 	}
 
-	newVisited := make([]bool, len(visited))
-	copy(newVisited, visited)
-	newVisited[blockIndex] = true
+	newVisitOrder := make([]int, len(visitOrder))
+	copy(newVisitOrder, visitOrder)
+	newVisitOrder[blockIndex] = depth
 
 	block := blocks[blockIndex]
 	var subFormulas []Formula
@@ -162,11 +162,11 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
 				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String()},
-				Then: getBlockFormula(blocks, block.Succs[0].Index, newVisited),
-				Else: getBlockFormula(blocks, block.Succs[1].Index, newVisited),
+				Then: getBlockFormula(blocks, block.Succs[0].Index, newVisitOrder, depth+1),
+				Else: getBlockFormula(blocks, block.Succs[1].Index, newVisitOrder, depth+1),
 			})
 		case *ssa.Jump:
-			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, newVisited))
+			subFormulas = append(subFormulas, getBlockFormula(blocks, block.Succs[0].Index, newVisitOrder, depth+1))
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
@@ -195,6 +195,18 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visited []bool) F
 			subFormulas = append(subFormulas, Convert{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
 				Arg:    Var{Name: v.X.Name(), Type: v.X.Type().String()},
+			})
+		case *ssa.Phi:
+			mostRecent := 0
+			preds := v.Block().Preds
+			for i, b := range preds {
+				if visitOrder[b.Index] > visitOrder[preds[mostRecent].Index] {
+					mostRecent = i
+				}
+			}
+			subFormulas = append(subFormulas, Convert{
+				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Arg:    Var{Name: v.Edges[mostRecent].Name(), Type: v.Edges[mostRecent].Type().String()},
 			})
 		default:
 			panic(fmt.Sprint("[ERROR] unknown instruction: '", v.String(), "'"))
