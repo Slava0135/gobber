@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/aclements/go-z3/z3"
@@ -78,7 +79,16 @@ func (v Var) String() string {
 
 func (v Var) Encode(ctx *EncodingContext) z3.Value {
 	if v.Constant {
-		panic("TODO: constants")
+		switch v.Type {
+		case intType:
+			i, err := strconv.ParseInt(v.Name, 10, 64)
+			if err != nil {
+				panic(err)
+			}
+			return ctx.FromInt(i, ctx.IntSort())
+		default:
+			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
+		}
 	}
 	if v, ok := ctx.vars[v.Name]; ok {
 		return v
@@ -187,7 +197,7 @@ func (ret Return) Encode(ctx *EncodingContext) z3.Value {
 	if result, ok := ctx.vars[resultSpecialVar]; ok {
 		switch result := result.(type) {
 		case z3.Int:
-			return result.Eq(ctx.vars[ret.Results[0].Name].(z3.Int))
+			return result.Eq(ret.Results[0].Encode(ctx).(z3.Int))
 		default:
 			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}

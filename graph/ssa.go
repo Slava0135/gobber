@@ -264,5 +264,5 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		panic("unexpected unsat")
 	}
 	fmt.Println("SAT")
-	fmt.Println(solver.Model())
+	fmt.Println(strings.TrimSpace(solver.Model().String()))
 }
