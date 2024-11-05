@@ -236,28 +236,25 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		fmt.Print(v, " ")
 	}
 	fmt.Println()
-
-	ctx := z3.NewContext(nil)
-
-	encodedVars := make(map[string]z3.Value, 0)
+	
+	ctx := &EncodingContext{z3.NewContext(nil), make(map[string]z3.Value, 0), make(map[string]z3.FuncDecl, 0)}
 	for _, v := range vars {
 		switch v.Type {
 		case intType:
-			encodedVars[v.Name] = ctx.IntConst(v.Name)
+			ctx.vars[v.Name] = ctx.IntConst(v.Name)
 		case boolType:
-			encodedVars[v.Name] = ctx.BoolConst(v.Name)
+			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
 	}
-	funcs := make(map[string]z3.FuncDecl, 0)
 
 	fmt.Println("::", "encoding formula in Z3")
-	encodedFormula := f.Encode(encodedVars, funcs).(z3.Bool)
+	encodedFormula := f.Encode(ctx).(z3.Bool)
 	fmt.Println(encodedFormula)
 
 	fmt.Println("::", "solving")
-	solver := z3.NewSolver(ctx)
+	solver := z3.NewSolver(ctx.Context)
 	solver.Assert(encodedFormula)
 	sat, err := solver.Check()
 	if err != nil {
@@ -267,4 +264,5 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		panic("unexpected unsat")
 	}
 	fmt.Println("SAT")
+	fmt.Println(solver.Model())
 }
