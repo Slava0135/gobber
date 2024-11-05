@@ -103,11 +103,25 @@ func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z
 	right := bo.Right.Encode(vars, funcs)
 	switch bo.Op {
 	case "+":
-		switch res := res.(type) {
+		switch left := left.(type) {
 		case z3.Int:
-			return res.Eq(left.(z3.Int).Add(right.(z3.Int)))
+			return res.(z3.Int).Eq(left.Add(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, res.Sort()))
+			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+		}
+	case ">":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.GT(right.(z3.Int)))
+		default:
+			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+		}
+	case "<":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
+		default:
+			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
 		}
 	default:
 		panic(fmt.Sprintf("unknown binary operation '%s'", bo.Op))
