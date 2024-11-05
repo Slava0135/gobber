@@ -142,6 +142,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Add(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Float).Eq(left.Add(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -149,6 +151,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Sub(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Float).Eq(left.Sub(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -156,6 +160,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Mul(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Float).Eq(left.Mul(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -163,6 +169,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Div(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Float).Eq(left.Div(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -177,6 +185,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.GT(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -184,6 +194,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.GE(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.GE(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -191,6 +203,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.LT(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -198,6 +212,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.LE(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.LE(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -205,6 +221,8 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.Eq(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -299,6 +317,10 @@ func (ret Return) Encode(ctx *EncodingContext) z3.Value {
 		switch result := result.(type) {
 		case z3.Int:
 			return result.Eq(ret.Results[0].Encode(ctx).(z3.Int))
+		case z3.Bool:
+			return result.Eq(ret.Results[0].Encode(ctx).(z3.Bool))
+		case z3.Float:
+			return result.Eq(ret.Results[0].Encode(ctx).(z3.Float))
 		default:
 			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}
