@@ -252,6 +252,19 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	}
 	funcs := make(map[string]z3.FuncDecl, 0)
 
-	encodedFormula := f.Encode(encodedVars, funcs)
+	fmt.Println("::", "encoding formula in Z3")
+	encodedFormula := f.Encode(encodedVars, funcs).(z3.Bool)
 	fmt.Println(encodedFormula)
+
+	fmt.Println("::", "solving")
+	solver := z3.NewSolver(ctx)
+	solver.Assert(encodedFormula)
+	sat, err := solver.Check()
+	if err != nil {
+		panic(err)
+	}
+	if !sat {
+		panic("unexpected unsat")
+	}
+	fmt.Println("SAT")
 }
