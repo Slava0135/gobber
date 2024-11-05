@@ -13,6 +13,7 @@ const (
 	unsignedIntType = "uint"
 	intType         = "int"
 	boolType        = "bool"
+	floatType       = "float64"
 
 	resultSpecialVar = "$result"
 )
@@ -21,6 +22,7 @@ type EncodingContext struct {
 	*z3.Context
 	vars  map[string]z3.Value
 	funcs map[string]z3.FuncDecl
+	floatSort z3.Sort
 }
 
 type Formula interface {
@@ -87,6 +89,18 @@ func (v Var) Encode(ctx *EncodingContext) z3.Value {
 				panic(err)
 			}
 			return ctx.FromInt(i, ctx.IntSort())
+		case boolType:
+			b, err := strconv.ParseBool(v.Name)
+			if err != nil {
+				panic(err)
+			}
+			return ctx.FromBool(b)
+		case floatType:
+			f, err := strconv.ParseFloat(v.Name, 64)
+			if err != nil {
+				panic(err)
+			}
+			return ctx.FromFloat64(f, ctx.floatSort)
 		default:
 			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 		}
@@ -309,6 +323,10 @@ func (c Convert) Encode(ctx *EncodingContext) z3.Value {
 	switch c.Result.Type {
 	case intType, unsignedIntType:
 		return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+	case boolType:
+		return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
+	case floatType:
+		return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
 	default:
 		panic(fmt.Sprintf("unsupported type '%s'", c.Result.Type))
 	}

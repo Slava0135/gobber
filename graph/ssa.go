@@ -237,13 +237,22 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	}
 	fmt.Println()
 	
-	ctx := &EncodingContext{z3.NewContext(nil), make(map[string]z3.Value, 0), make(map[string]z3.FuncDecl, 0)}
+	z3ctx := z3.NewContext(nil)
+	ctx := &EncodingContext{
+		Context: z3ctx,
+		vars: make(map[string]z3.Value, 0),
+		funcs: make(map[string]z3.FuncDecl, 0),
+		floatSort: z3ctx.FloatSort(11, 53),
+	}
+
 	for _, v := range vars {
 		switch v.Type {
 		case intType, unsignedIntType:
 			ctx.vars[v.Name] = ctx.IntConst(v.Name)
 		case boolType:
 			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
+		case floatType:
+			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
