@@ -228,5 +228,16 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 }
 
 func encodeFormula(fn *ssa.Function, f Formula) {
-	z3.NewContext(nil)
+	ctx := z3.NewContext(nil)
+	vars := make(map[string]z3.Value, 0)
+	for _, p := range fn.Params {
+		t := p.Type().String()
+		switch p.Type().String() {
+		case "int":
+			vars[p.Name()] = ctx.IntConst(p.Name())
+		default:
+			panic(fmt.Sprintf("unknown type '%s' of parameter '%s'", t, p.Name()))
+		}
+	}
+	fmt.Println(vars)
 }
