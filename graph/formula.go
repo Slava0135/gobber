@@ -425,19 +425,35 @@ func (c Convert) String() string {
 }
 
 func (c Convert) Encode(ctx *EncodingContext) z3.Value {
-	if c.Result.Type != c.Arg.Type {
-		panic("conversions between types are not supported")
+	unsupportedConv := func() {
+		panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
 	}
 	switch c.Result.Type {
 	case intType, unsignedIntType:
-		return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+		switch c.Arg.Type {
+		case intType, unsignedIntType:
+			return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+		default:
+			unsupportedConv()
+		}
 	case boolType:
-		return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
+		switch c.Arg.Type {
+		case boolType:
+			return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
+		default:
+			unsupportedConv()
+		}
 	case floatType:
-		return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
+		switch c.Arg.Type {
+		case floatType:
+			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
+		default:
+			unsupportedConv()
+		}
 	default:
-		panic(fmt.Sprintf("unsupported type '%s'", c.Result.Type))
+		unsupportedConv()
 	}
+	panic("unreachable")
 }
 
 func (c Convert) ScanVars(vars map[string]Var) {
