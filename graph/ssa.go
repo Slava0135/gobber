@@ -7,6 +7,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
+	"math"
 	"os"
 	"strings"
 
@@ -245,10 +246,14 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		floatSort: z3ctx.FloatSort(11, 53),
 	}
 
+	var asserts []z3.Bool
 	for _, v := range vars {
 		switch v.Type {
 		case intType, unsignedIntType:
-			ctx.vars[v.Name] = ctx.IntConst(v.Name)
+			i := ctx.IntConst(v.Name)
+			ctx.vars[v.Name] = i
+			asserts = append(asserts, i.LE(ctx.FromInt(math.MaxInt64, ctx.IntSort()).(z3.Int)))
+			asserts = append(asserts, i.GE(ctx.FromInt(math.MinInt64, ctx.IntSort()).(z3.Int)))
 		case boolType:
 			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
 		case floatType:
@@ -265,6 +270,9 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "solving")
 	solver := z3.NewSolver(ctx.Context)
 	solver.Assert(encodedFormula)
+	for _, a := range asserts {
+		solver.Assert(a)
+	}
 	sat, err := solver.Check()
 	if err != nil {
 		panic(err)
