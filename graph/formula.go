@@ -42,6 +42,14 @@ func (ctx *EncodingContext) ComplexConst(name string) *Complex {
 	}
 }
 
+func (ctx *EncodingContext) FromComplex128(c complex128) *Complex {
+	return &Complex{
+		real: ctx.FromFloat64(real(c), ctx.floatSort),
+		imag: ctx.FromFloat64(imag(c), ctx.floatSort),
+		sort: ctx.complexSort,
+	}
+}
+
 type Formula interface {
 	fmt.Stringer
 
@@ -118,6 +126,12 @@ func (v Var) Encode(ctx *EncodingContext) SymValue {
 				panic(err)
 			}
 			return ctx.FromFloat64(f, ctx.floatSort)
+		case complexType:
+			c, err := strconv.ParseComplex(v.Name, complexSize)
+			if err != nil {
+				panic(err)
+			}
+			return ctx.FromComplex128(c)
 		default:
 			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 		}
