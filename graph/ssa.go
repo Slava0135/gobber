@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aclements/go-z3/z3"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
 )
@@ -227,11 +228,30 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 }
 
 func encodeFormula(f Formula) {
-	fmt.Println("::", "scanning vars")
+	fmt.Println("::", "listing all variables")
+
 	vars := make(map[string]Var, 0)
 	f.ScanVars(vars)
 	for _, v := range vars {
 		fmt.Print(v, " ")
 	}
 	fmt.Println()
+
+	ctx := z3.NewContext(nil)
+
+	encodedVars := make(map[string]z3.Value, 0)
+	for _, v := range vars {
+		switch v.Type {
+		case intType:
+			encodedVars[v.Name] = ctx.IntConst(v.Name)
+		case boolType:
+			encodedVars[v.Name] = ctx.BoolConst(v.Name)
+		default:
+			panic(fmt.Sprintf("unknown type '%s'", v.Type))
+		}
+	}
+	funcs := make(map[string]z3.FuncDecl, 0)
+
+	encodedFormula := f.Encode(encodedVars, funcs)
+	fmt.Println(encodedFormula)
 }

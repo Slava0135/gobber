@@ -10,6 +10,7 @@ import (
 
 const (
 	intType = "int"
+	boolType = "bool"
 
 	resultSpecialVar = "$result"
 )
@@ -70,6 +71,9 @@ func (v Var) String() string {
 }
 
 func (v Var) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	if v.Constant {
+		panic("TODO: constants")
+	}
 	if v, ok := vars[v.Name]; ok {
 		return v
 	}
