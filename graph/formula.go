@@ -76,7 +76,7 @@ func (v Var) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.V
 }
 
 func (bo BinOp) String() string {
-	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right)
+	return fmt.Sprintf("(%s %s %s) --> %s", bo.Left, bo.Op, bo.Right, bo.Result)
 }
 
 func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
@@ -97,7 +97,7 @@ func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z
 }
 
 func (uo UnOp) String() string {
-	return fmt.Sprintf("%s == %s%s", uo.Result, uo.Op, uo.Arg)
+	return fmt.Sprintf("%s%s --> %s", uo.Op, uo.Arg, uo.Result)
 }
 
 func (uo UnOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
@@ -159,7 +159,7 @@ func (f Call) String() string {
 	for _, a := range f.Args {
 		s = append(s, a.String())
 	}
-	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
+	return fmt.Sprintf("%s(%s) --> %s", f.Name, strings.Join(s, ", "), f.Result)
 }
 
 func (f Call) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
