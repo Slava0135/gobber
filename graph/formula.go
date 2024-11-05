@@ -447,6 +447,8 @@ func (c Convert) Encode(ctx *EncodingContext) z3.Value {
 		switch c.Arg.Type {
 		case floatType:
 			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
+		case intType, unsignedIntType:
+			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
 		default:
 			unsupportedConv()
 		}
