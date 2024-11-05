@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	intType  = "int"
-	boolType = "bool"
+	unsignedIntType = "uint"
+	intType         = "int"
+	boolType        = "bool"
 
 	resultSpecialVar = "$result"
 )
@@ -80,7 +81,7 @@ func (v Var) String() string {
 func (v Var) Encode(ctx *EncodingContext) z3.Value {
 	if v.Constant {
 		switch v.Type {
-		case intType:
+		case intType, unsignedIntType:
 			i, err := strconv.ParseInt(v.Name, 10, 64)
 			if err != nil {
 				panic(err)
@@ -306,7 +307,7 @@ func (c Convert) Encode(ctx *EncodingContext) z3.Value {
 		panic("conversions between types are not supported")
 	}
 	switch c.Result.Type {
-	case intType:
+	case intType, unsignedIntType:
 		return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
 	default:
 		panic(fmt.Sprintf("unsupported type '%s'", c.Result.Type))

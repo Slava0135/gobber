@@ -240,7 +240,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	ctx := &EncodingContext{z3.NewContext(nil), make(map[string]z3.Value, 0), make(map[string]z3.FuncDecl, 0)}
 	for _, v := range vars {
 		switch v.Type {
-		case intType:
+		case intType, unsignedIntType:
 			ctx.vars[v.Name] = ctx.IntConst(v.Name)
 		case boolType:
 			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
