@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/aclements/go-z3/z3"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
 )
@@ -67,7 +68,7 @@ func doSSA(fn *ssa.Function) {
 	fmt.Println("::", "building formula")
 	f := makeFormula(fn)
 	fmt.Println("::", "encoding formula")
-	encodeFormula(f)
+	encodeFormula(fn, f)
 }
 
 func printBlocks(fn *ssa.Function) {
@@ -226,12 +227,5 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 	return And{SubFormulas: subFormulas}
 }
 
-func encodeFormula(f Formula) {
-	fmt.Println("::", "scanning vars")
-	vars := make(map[string]Var, 0)
-	f.ScanVars(vars)
-	for _, v := range vars {
-		fmt.Print(v, " ")
-	}
-	fmt.Println()
+func encodeFormula(fn *ssa.Function, f Formula) {
 }
