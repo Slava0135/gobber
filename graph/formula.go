@@ -14,23 +14,37 @@ const (
 	intType         = "int"
 	boolType        = "bool"
 	floatType       = "float64"
+	complexType     = "complex128"
 
-	intSize = 64
+	intSize     = 64
+	floatSize   = 64
+	complexSize = 64
 
 	resultSpecialVar = "$result"
+
+	realFuncName = "real"
+	imagFuncName = "imag"
 )
 
 type EncodingContext struct {
 	*z3.Context
-	vars      map[string]z3.Value
+	vars      map[string]SymValue
 	funcs     map[string]z3.FuncDecl
 	floatSort z3.Sort
+}
+
+func (ctx *EncodingContext) ComplexConst(name string, floatSort z3.Sort) *Complex {
+	return &Complex{
+		real: ctx.Const(name+".REAL", floatSort).(z3.Float),
+		imag: ctx.Const(name+".IMAG", floatSort).(z3.Float),
+		sort: floatSort,
+	}
 }
 
 type Formula interface {
 	fmt.Stringer
 
-	Encode(ctx *EncodingContext) z3.Value
+	Encode(ctx *EncodingContext) SymValue
 	ScanVars(vars map[string]Var)
 }
 
@@ -82,11 +96,11 @@ func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
 
-func (v Var) Encode(ctx *EncodingContext) z3.Value {
+func (v Var) Encode(ctx *EncodingContext) SymValue {
 	if v.Constant {
 		switch v.Type {
 		case intType, unsignedIntType:
-			i, err := strconv.ParseInt(v.Name, 10, 64)
+			i, err := strconv.ParseInt(v.Name, 10, intSize)
 			if err != nil {
 				panic(err)
 			}
@@ -98,7 +112,7 @@ func (v Var) Encode(ctx *EncodingContext) z3.Value {
 			}
 			return ctx.FromBool(b)
 		case floatType:
-			f, err := strconv.ParseFloat(v.Name, 64)
+			f, err := strconv.ParseFloat(v.Name, floatSize)
 			if err != nil {
 				panic(err)
 			}
@@ -130,7 +144,7 @@ func (bo BinOp) String() string {
 	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right)
 }
 
-func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
+func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 	unknownOp := func(op string, sort z3.Sort) {
 		panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", op, sort))
 	}
@@ -287,7 +301,7 @@ func (uo UnOp) String() string {
 	return fmt.Sprintf("%s == %s%s", uo.Result, uo.Op, uo.Arg)
 }
 
-func (uo UnOp) Encode(ctx *EncodingContext) z3.Value {
+func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 	_ = uo.Result.Encode(ctx)
 	_ = uo.Arg.Encode(ctx)
 	switch uo.Op {
@@ -309,7 +323,7 @@ func (ret Return) String() string {
 	return fmt.Sprintf("return %s", strings.Join(s, ","))
 }
 
-func (ret Return) Encode(ctx *EncodingContext) z3.Value {
+func (ret Return) Encode(ctx *EncodingContext) SymValue {
 	if len(ret.Results) > 1 {
 		panic("multiple return values are not supported")
 	}
@@ -321,6 +335,9 @@ func (ret Return) Encode(ctx *EncodingContext) z3.Value {
 			return result.Eq(ret.Results[0].Encode(ctx).(z3.Bool))
 		case z3.Float:
 			return result.Eq(ret.Results[0].Encode(ctx).(z3.Float))
+		case *Complex:
+			arg := ret.Results[0].Encode(ctx).(*Complex)
+			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
 		default:
 			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}
@@ -357,7 +374,7 @@ func (and And) String() string {
 	return fmt.Sprintf("(%s)", strings.Join(s, ") && ("))
 }
 
-func (and And) Encode(ctx *EncodingContext) z3.Value {
+func (and And) Encode(ctx *EncodingContext) SymValue {
 	var res = and.SubFormulas[0].Encode(ctx).(z3.Bool)
 	for i := 1; i < len(and.SubFormulas); i++ {
 		res = res.And(and.SubFormulas[i].Encode(ctx).(z3.Bool))
@@ -375,7 +392,7 @@ func (i If) String() string {
 	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
 }
 
-func (i If) Encode(ctx *EncodingContext) z3.Value {
+func (i If) Encode(ctx *EncodingContext) SymValue {
 	var cond = i.Cond.Encode(ctx).(z3.Bool)
 	var thn = i.Then.Encode(ctx).(z3.Bool)
 	var els = i.Else.Encode(ctx).(z3.Bool)
@@ -396,16 +413,23 @@ func (f Call) String() string {
 	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
 }
 
-func (f Call) Encode(ctx *EncodingContext) z3.Value {
-	if fd, ok := ctx.funcs[f.Name]; ok {
+func (f Call) Encode(ctx *EncodingContext) SymValue {
+	// built-in
+	switch f.Name {
+	case realFuncName:
+		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
+	case imagFuncName:
+		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
+	}
+	if function, ok := ctx.funcs[f.Name]; ok {
 		var args []z3.Value
 		for _, a := range f.Args {
-			args = append(args, a.Encode(ctx))
+			args = append(args, a.Encode(ctx).(z3.Value))
 		}
 		var res = f.Result.Encode(ctx)
 		switch res := res.(type) {
 		case z3.Int:
-			res.Eq(fd.Apply(args...).(z3.Int))
+			res.Eq(function.Apply(args...).(z3.Int))
 		default:
 			panic(fmt.Sprintf("unknown sort '%s'", res.Sort()))
 		}
@@ -424,7 +448,7 @@ func (c Convert) String() string {
 	return fmt.Sprintf("%s as %s", c.Arg, c.Result)
 }
 
-func (c Convert) Encode(ctx *EncodingContext) z3.Value {
+func (c Convert) Encode(ctx *EncodingContext) SymValue {
 	unsupportedConv := func() {
 		panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
 	}
@@ -451,6 +475,13 @@ func (c Convert) Encode(ctx *EncodingContext) z3.Value {
 			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
 		default:
 			unsupportedConv()
+		}
+	case complexType:
+		switch c.Arg.Type {
+		case complexType:
+			res := c.Result.Encode(ctx).(*Complex)
+			arg := c.Arg.Encode(ctx).(*Complex)
+			return res.real.Eq(arg.real).And(res.imag.Eq(arg.imag))
 		}
 	default:
 		unsupportedConv()

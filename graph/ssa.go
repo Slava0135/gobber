@@ -241,7 +241,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	z3ctx := z3.NewContext(nil)
 	ctx := &EncodingContext{
 		Context: z3ctx,
-		vars: make(map[string]z3.Value, 0),
+		vars: make(map[string]SymValue, 0),
 		funcs: make(map[string]z3.FuncDecl, 0),
 		floatSort: z3ctx.FloatSort(11, 53),
 	}
@@ -258,6 +258,8 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
 		case floatType:
 			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
+		case complexType:
+			ctx.vars[v.Name] = ctx.ComplexConst(v.Name, ctx.floatSort)
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
