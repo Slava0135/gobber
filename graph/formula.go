@@ -28,16 +28,17 @@ const (
 
 type EncodingContext struct {
 	*z3.Context
-	vars      map[string]SymValue
-	funcs     map[string]z3.FuncDecl
-	floatSort z3.Sort
+	vars        map[string]SymValue
+	funcs       map[string]z3.FuncDecl
+	floatSort   z3.Sort
+	complexSort z3.Sort
 }
 
-func (ctx *EncodingContext) ComplexConst(name string, floatSort z3.Sort) *Complex {
+func (ctx *EncodingContext) ComplexConst(name string) *Complex {
 	return &Complex{
-		real: ctx.Const(name+".REAL", floatSort).(z3.Float),
-		imag: ctx.Const(name+".IMAG", floatSort).(z3.Float),
-		sort: floatSort,
+		real: ctx.Const(name+".REAL", ctx.floatSort).(z3.Float),
+		imag: ctx.Const(name+".IMAG", ctx.floatSort).(z3.Float),
+		sort: ctx.complexSort,
 	}
 }
 
@@ -158,6 +159,11 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Int).Eq(left.Add(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Float).Eq(left.Add(right.(z3.Float)))
+		case *Complex:
+			resCx := res.(*Complex)
+			rightCx := right.(*Complex)
+			return resCx.real.Eq(left.real.Add(rightCx.real)).And(
+				resCx.imag.Eq(left.imag.Add(rightCx.imag)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -167,6 +173,11 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Int).Eq(left.Sub(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Float).Eq(left.Sub(right.(z3.Float)))
+		case *Complex:
+			resCx := res.(*Complex)
+			rightCx := right.(*Complex)
+			return resCx.real.Eq(left.real.Sub(rightCx.real)).And(
+				resCx.imag.Eq(left.imag.Sub(rightCx.imag)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -176,6 +187,16 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Int).Eq(left.Mul(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Float).Eq(left.Mul(right.(z3.Float)))
+		case *Complex:
+			resCx := res.(*Complex)
+			rightCx := right.(*Complex)
+			// (a+bi)(c+di) = (ac - bd) + (ad + bc)i
+			a := left.real
+			b := left.imag
+			c := rightCx.real
+			d := rightCx.imag
+			return resCx.real.Eq(a.Mul(c).Sub(b.Mul(d))).And(
+				resCx.imag.Eq(a.Mul(d).Add(b.Mul(c))))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -185,6 +206,17 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Int).Eq(left.Div(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Float).Eq(left.Div(right.(z3.Float)))
+		case *Complex:
+			resCx := res.(*Complex)
+			rightCx := right.(*Complex)
+			// (a+bi)/(c+di) = ((ac + bd) + (bc - ad)i)/(c^2 + d^2)
+			a := left.real
+			b := left.imag
+			c := rightCx.real
+			d := rightCx.imag
+			denom := c.Mul(c).Add(d.Mul(d))
+			return resCx.real.Eq(a.Mul(c).Add(b.Mul(d)).Div(denom)).And(
+				resCx.imag.Eq(b.Mul(c).Sub(a.Mul(d)).Div(denom)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}

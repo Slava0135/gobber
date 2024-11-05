@@ -244,6 +244,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		vars: make(map[string]SymValue, 0),
 		funcs: make(map[string]z3.FuncDecl, 0),
 		floatSort: z3ctx.FloatSort(11, 53),
+		complexSort: z3ctx.UninterpretedSort(complexType),
 	}
 
 	var asserts []z3.Bool
@@ -259,7 +260,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		case floatType:
 			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
 		case complexType:
-			ctx.vars[v.Name] = ctx.ComplexConst(v.Name, ctx.floatSort)
+			ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
