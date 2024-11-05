@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	intType = "int"
+	intType  = "int"
 	boolType = "bool"
 
 	resultSpecialVar = "$result"
@@ -109,6 +109,20 @@ func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z
 		default:
 			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
 		}
+	case "-":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Int).Eq(left.Sub(right.(z3.Int)))
+		default:
+			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+		}
+	case "*":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Int).Eq(left.Mul(right.(z3.Int)))
+		default:
+			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+		}
 	case ">":
 		switch left := left.(type) {
 		case z3.Int:
@@ -165,12 +179,32 @@ func (ret Return) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl)
 		panic("multiple return values are not supported")
 	}
 	if result, ok := vars[resultSpecialVar]; ok {
-		return result
+		switch result := result.(type) {
+		case z3.Int:
+			return result.Eq(vars[ret.Results[0].Name].(z3.Int))
+		default:
+			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
+		}
 	}
 	panic("result var not found")
 }
 
 func (ret Return) ScanVars(vars map[string]Var) {
+	if len(ret.Results) > 1 {
+		panic("multiple return values are not supported")
+	}
+	res := ret.Results[0]
+	if v, ok := vars[resultSpecialVar]; ok {
+		if res.Type != v.Type {
+			panic(fmt.Sprintf("return values can't have different types ('%s' and '%s')", res.Type, v.Type))
+		}
+	} else {
+		vars[resultSpecialVar] = Var{
+			Name:     resultSpecialVar,
+			Type:     res.Type,
+			Constant: res.Constant,
+		}
+	}
 	for _, v := range ret.Results {
 		v.ScanVars(vars)
 	}

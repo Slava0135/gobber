@@ -68,7 +68,7 @@ func doSSA(fn *ssa.Function) {
 	fmt.Println("::", "building formula")
 	f := makeFormula(fn)
 	fmt.Println("::", "encoding formula")
-	encodeFormula(f)
+	encodeFormula(fn, f)
 }
 
 func printBlocks(fn *ssa.Function) {
@@ -227,7 +227,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 	return And{SubFormulas: subFormulas}
 }
 
-func encodeFormula(f Formula) {
+func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "listing all variables")
 
 	vars := make(map[string]Var, 0)
