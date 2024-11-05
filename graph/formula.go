@@ -15,13 +15,15 @@ const (
 	boolType        = "bool"
 	floatType       = "float64"
 
+	intSize = 64
+
 	resultSpecialVar = "$result"
 )
 
 type EncodingContext struct {
 	*z3.Context
-	vars  map[string]z3.Value
-	funcs map[string]z3.FuncDecl
+	vars      map[string]z3.Value
+	funcs     map[string]z3.FuncDecl
 	floatSort z3.Sort
 }
 
@@ -129,6 +131,9 @@ func (bo BinOp) String() string {
 }
 
 func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
+	unknownOp := func(op string, sort z3.Sort) {
+		panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", op, sort))
+	}
 	res := bo.Result.Encode(ctx)
 	left := bo.Left.Encode(ctx)
 	right := bo.Right.Encode(ctx)
@@ -138,39 +143,67 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Add(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+			unknownOp(bo.Op, left.Sort())
 		}
 	case "-":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Sub(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+			unknownOp(bo.Op, left.Sort())
 		}
 	case "*":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Mul(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+			unknownOp(bo.Op, left.Sort())
 		}
 	case ">":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+			unknownOp(bo.Op, left.Sort())
 		}
 	case "<":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
 		default:
-			panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "<<":
+		switch left := left.(type) {
+		case z3.Int:
+			leftBV := left.ToBV(intSize)
+			rightBV := right.(z3.Int).ToBV(intSize)
+			return res.(z3.Int).Eq(leftBV.Lsh(rightBV).SToInt())
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case ">>":
+		switch left := left.(type) {
+		case z3.Int:
+			leftBV := left.ToBV(intSize)
+			rightBV := right.(z3.Int).ToBV(intSize)
+			return res.(z3.Int).Eq(leftBV.SRsh(rightBV).SToInt())
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "^":
+		switch left := left.(type) {
+		case z3.Int:
+			leftBV := left.ToBV(intSize)
+			rightBV := right.(z3.Int).ToBV(intSize)
+			return res.(z3.Int).Eq(leftBV.Xor(rightBV).SToInt())
+		default:
+			unknownOp(bo.Op, left.Sort())
 		}
 	default:
 		panic(fmt.Sprintf("unknown binary operation '%s'", bo.Op))
 	}
+	panic("unreachable")
 }
 
 func (bo BinOp) ScanVars(vars map[string]Var) {
