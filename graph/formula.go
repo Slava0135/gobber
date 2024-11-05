@@ -10,18 +10,14 @@ import (
 
 const (
 	intType = "int"
-)
 
-type EncodingContext struct {
-	*z3.Context
-	vars map[string]z3.Value
-	funcs map[string]z3.FuncDecl
-}
+	resultSpecialVar = "$result"
+)
 
 type Formula interface {
 	fmt.Stringer
 
-	Encode(ctx *EncodingContext) z3.Value
+	Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value
 }
 
 type Var struct {
@@ -72,8 +68,8 @@ func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
 
-func (v Var) Encode(ctx *EncodingContext) z3.Value {
-	if v, ok := ctx.vars[v.Name]; ok {
+func (v Var) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	if v, ok := vars[v.Name]; ok {
 		return v
 	}
 	panic(fmt.Sprintf("unknown var '%s'", v.Name))
@@ -83,10 +79,10 @@ func (bo BinOp) String() string {
 	return fmt.Sprintf("(%s %s %s) --> %s", bo.Left, bo.Op, bo.Right, bo.Result)
 }
 
-func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
-	res := bo.Result.Encode(ctx)
-	left := bo.Left.Encode(ctx)
-	right := bo.Right.Encode(ctx)
+func (bo BinOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	res := bo.Result.Encode(vars, funcs)
+	left := bo.Left.Encode(vars, funcs)
+	right := bo.Right.Encode(vars, funcs)
 	switch bo.Op {
 	case "+":
 		switch res := res.(type) {
@@ -104,9 +100,9 @@ func (uo UnOp) String() string {
 	return fmt.Sprintf("%s%s --> %s", uo.Op, uo.Arg, uo.Result)
 }
 
-func (uo UnOp) Encode(ctx *EncodingContext) z3.Value {
-	_ = uo.Result.Encode(ctx)
-	_ = uo.Arg.Encode(ctx)
+func (uo UnOp) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	_ = uo.Result.Encode(vars, funcs)
+	_ = uo.Arg.Encode(vars, funcs)
 	switch uo.Op {
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
@@ -121,8 +117,14 @@ func (ret Return) String() string {
 	return fmt.Sprintf("return %s", strings.Join(s, ","))
 }
 
-func (ret Return) Encode(ctx *EncodingContext) z3.Value {
-	panic("not supported")
+func (ret Return) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	if len(ret.Results) > 1 {
+		panic("multiple return values are not supported")
+	}
+	if result, ok := vars[resultSpecialVar]; ok {
+		return result
+	}
+	panic("result var not found")
 }
 
 func (and And) String() string {
@@ -133,10 +135,10 @@ func (and And) String() string {
 	return fmt.Sprintf("(%s)", strings.Join(s, ") && ("))
 }
 
-func (and And) Encode(ctx *EncodingContext) z3.Value {
-	var res = and.SubFormulas[0].Encode(ctx).(z3.Bool)
+func (and And) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	var res = and.SubFormulas[0].Encode(vars, funcs).(z3.Bool)
 	for i := 1; i < len(and.SubFormulas); i++ {
-		res = res.And(and.SubFormulas[i].Encode(ctx).(z3.Bool))
+		res = res.And(and.SubFormulas[i].Encode(vars, funcs).(z3.Bool))
 	}
 	return res
 }
@@ -145,10 +147,10 @@ func (i If) String() string {
 	return fmt.Sprintf("(%s && %s) || (!%s && %s)", i.Cond, i.Then, i.Cond, i.Else)
 }
 
-func (i If) Encode(ctx *EncodingContext) z3.Value {
-	var cond = i.Cond.Encode(ctx).(z3.Bool)
-	var thn = i.Then.Encode(ctx).(z3.Bool)
-	var els = i.Else.Encode(ctx).(z3.Bool)
+func (i If) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	var cond = i.Cond.Encode(vars, funcs).(z3.Bool)
+	var thn = i.Then.Encode(vars, funcs).(z3.Bool)
+	var els = i.Else.Encode(vars, funcs).(z3.Bool)
 	return cond.And(thn).Or(cond.Not().And(els))
 }
 
@@ -160,13 +162,13 @@ func (f Call) String() string {
 	return fmt.Sprintf("%s(%s) --> %s", f.Name, strings.Join(s, ", "), f.Result)
 }
 
-func (f Call) Encode(ctx *EncodingContext) z3.Value {
-	if fd, ok := ctx.funcs[f.Name]; ok {
+func (f Call) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
+	if fd, ok := funcs[f.Name]; ok {
 		var args []z3.Value
 		for _, a := range f.Args {
-			args = append(args, a.Encode(ctx))
+			args = append(args, a.Encode(vars, funcs))
 		}
-		var res = f.Result.Encode(ctx)
+		var res = f.Result.Encode(vars, funcs)
 		switch res := res.(type) {
 		case z3.Int:
 			res.Eq(fd.Apply(args...).(z3.Int))
@@ -181,13 +183,13 @@ func (c Convert) String() string {
 	return fmt.Sprintf("%s as %s", c.Arg, c.Result)
 }
 
-func (c Convert) Encode(ctx *EncodingContext) z3.Value {
+func (c Convert) Encode(vars map[string]z3.Value, funcs map[string]z3.FuncDecl) z3.Value {
 	if c.Result.Type != c.Arg.Type {
 		panic("conversions between types are not supported")
 	}
 	switch c.Result.Type {
 	case intType:
-		return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+		return c.Result.Encode(vars, funcs).(z3.Int).Eq(c.Arg.Encode(vars, funcs).(z3.Int))
 	default:
 		panic(fmt.Sprintf("unsupported type '%s'", c.Result.Type))
 	}
