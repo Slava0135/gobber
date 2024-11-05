@@ -159,6 +159,20 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
+	case "/":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Int).Eq(left.Div(right.(z3.Int)))
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "%":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Int).Eq(left.Mod(right.(z3.Int)))
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
 	case ">":
 		switch left := left.(type) {
 		case z3.Int:
@@ -166,10 +180,31 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
+	case ">=":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.GE(right.(z3.Int)))
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
 	case "<":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "<=":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.LE(right.(z3.Int)))
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "==":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
@@ -197,6 +232,24 @@ func (bo BinOp) Encode(ctx *EncodingContext) z3.Value {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Xor(rightBV).SToInt())
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "&":
+		switch left := left.(type) {
+		case z3.Int:
+			leftBV := left.ToBV(intSize)
+			rightBV := right.(z3.Int).ToBV(intSize)
+			return res.(z3.Int).Eq(leftBV.And(rightBV).SToInt())
+		default:
+			unknownOp(bo.Op, left.Sort())
+		}
+	case "|":
+		switch left := left.(type) {
+		case z3.Int:
+			leftBV := left.ToBV(intSize)
+			rightBV := right.(z3.Int).ToBV(intSize)
+			return res.(z3.Int).Eq(leftBV.Or(rightBV).SToInt())
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
