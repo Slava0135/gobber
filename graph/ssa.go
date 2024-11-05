@@ -228,5 +228,4 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 }
 
 func encodeFormula(fn *ssa.Function, f Formula) {
-	z3.NewContext(nil)
 }
