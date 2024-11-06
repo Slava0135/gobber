@@ -290,7 +290,7 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
 		case z3.Float:
-			return res.(z3.Bool).Eq(left.Eq(right.(z3.Float)))
+			return res.(z3.Bool).Eq(left.IEEEEq(right.(z3.Float)))
 		default:
 			unknownOp(bo.Op, left.Sort())
 		}
