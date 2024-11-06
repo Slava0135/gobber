@@ -15,6 +15,7 @@ const (
 	boolType        = "bool"
 	floatType       = "float64"
 	complexType     = "complex128"
+	stringType      = "string"
 
 	intSize     = 64
 	floatSize   = 64
@@ -32,6 +33,7 @@ type EncodingContext struct {
 	funcs       map[string]z3.FuncDecl
 	floatSort   z3.Sort
 	complexSort z3.Sort
+	stringSort  z3.Sort
 }
 
 func (ctx *EncodingContext) ComplexConst(name string) *Complex {
@@ -39,6 +41,12 @@ func (ctx *EncodingContext) ComplexConst(name string) *Complex {
 		real: ctx.Const(name+".REAL", ctx.floatSort).(z3.Float),
 		imag: ctx.Const(name+".IMAG", ctx.floatSort).(z3.Float),
 		sort: ctx.complexSort,
+	}
+}
+
+func (ctx *EncodingContext) StringConst(name string) *String {
+	return &String{
+		sort: ctx.stringSort,
 	}
 }
 
@@ -384,6 +392,8 @@ func (ret Return) Encode(ctx *EncodingContext) SymValue {
 		case *Complex:
 			arg := ret.Results[0].Encode(ctx).(*Complex)
 			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
+		case *String:
+			return result
 		default:
 			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}

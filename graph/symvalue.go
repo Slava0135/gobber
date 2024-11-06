@@ -12,6 +12,14 @@ type Complex struct {
 	sort z3.Sort
 }
 
+type String struct {
+	sort z3.Sort
+}
+
 func (c *Complex) Sort() z3.Sort {
 	return c.sort
+}
+
+func (s *String) Sort() z3.Sort {
+	return s.sort
 }
