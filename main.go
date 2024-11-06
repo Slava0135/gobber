@@ -4,8 +4,8 @@ import (
 	"flag"
 
 	"slava0135/gobber/constraints"
-	"slava0135/gobber/symexec"
 	"slava0135/gobber/subtypes"
+	"slava0135/gobber/symexec"
 )
 
 func main() {
@@ -14,8 +14,10 @@ func main() {
 	runArrays := flag.Bool("arrays", false, "solve arrays constraints")
 	runPushPop := flag.Bool("pushpop", false, "solve constraints with push-pop incrementality")
 	runSoft := flag.Bool("soft", false, "solve soft constraints")
+
 	runSubtypes := flag.Bool("subtypes", false, "subtyping encoding")
-	runSSA := flag.Bool("SSA", false, "static single assignment")
+
+	runStatic := flag.Bool("static", false, "static symbolic execution")
 
 	flag.Parse()
 
@@ -57,7 +59,7 @@ func main() {
 		subtypes.NaiveTypeSolver()
 	}
 
-	if *runSSA {
-		symexec.Do()
+	if *runStatic {
+		symexec.Static()
 	}
 }

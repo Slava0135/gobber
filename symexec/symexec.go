@@ -21,7 +21,7 @@ type Register interface {
 	Name() string
 }
 
-func Do() {
+func Static() {
 	os.Chdir("testdata")
 
 	testcases, err := os.ReadDir("./")
@@ -49,7 +49,7 @@ func Do() {
 
 		for _, v := range main.Members {
 			if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
-				doSSA(fn)
+				staticFunction(fn)
 			}
 		}
 
@@ -57,7 +57,7 @@ func Do() {
 	}
 }
 
-func doSSA(fn *ssa.Function) {
+func staticFunction(fn *ssa.Function) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("[ERROR]", r)
@@ -237,15 +237,15 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		fmt.Print(v, " ")
 	}
 	fmt.Println()
-	
+
 	z3ctx := z3.NewContext(nil)
 	ctx := &EncodingContext{
-		Context: z3ctx,
-		vars: make(map[string]SymValue, 0),
-		funcs: make(map[string]z3.FuncDecl, 0),
-		floatSort: z3ctx.FloatSort(11, 53),
+		Context:     z3ctx,
+		vars:        make(map[string]SymValue, 0),
+		funcs:       make(map[string]z3.FuncDecl, 0),
+		floatSort:   z3ctx.FloatSort(11, 53),
 		complexSort: z3ctx.UninterpretedSort(complexType),
-		stringSort: z3ctx.UninterpretedSort(stringType),
+		stringSort:  z3ctx.UninterpretedSort(stringType),
 	}
 
 	var asserts []z3.Bool
