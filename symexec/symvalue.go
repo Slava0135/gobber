@@ -1,4 +1,4 @@
-package graph
+package symexec
 
 import "github.com/aclements/go-z3/z3"
 

@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"slava0135/gobber/constraints"
-	"slava0135/gobber/graph"
+	"slava0135/gobber/symexec"
 	"slava0135/gobber/subtypes"
 )
 
@@ -58,6 +58,6 @@ func main() {
 	}
 
 	if *runSSA {
-		graph.SSA()
+		symexec.Do()
 	}
 }

@@ -1,4 +1,4 @@
-package graph
+package symexec
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ type Register interface {
 	Name() string
 }
 
-func SSA() {
+func Do() {
 	os.Chdir("testdata")
 
 	testcases, err := os.ReadDir("./")
