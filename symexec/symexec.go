@@ -245,24 +245,22 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println()
 
 	z3ctx := z3.NewContext(nil)
-	zero := z3ctx.FromInt(0, z3ctx.IntSort())
 	addrSort := z3ctx.UninterpretedSort("addr")
-	null := z3ctx.Const("$null", addrSort)
-	emptyArray := z3ctx.ConstArray(z3ctx.IntSort(), null)
+	intArraySort := z3ctx.ArraySort(z3ctx.IntSort(), addrSort)
 	ctx := &EncodingContext{
 		Context: z3ctx,
 
 		vars:  make(map[string]SymValue, 0),
 		funcs: make(map[string]z3.FuncDecl, 0),
 
-		intValues:            z3ctx.ConstArray(addrSort, zero),
-		intArrayValuesMemory: z3ctx.ConstArray(addrSort, emptyArray),
-		intArrayLenMemory:    z3ctx.ConstArray(addrSort, zero),
+		intValuesMemory:      z3ctx.Const("$intValuesMemory", z3ctx.ArraySort(addrSort, z3ctx.IntSort())).(z3.Array),
+		intArrayValuesMemory: z3ctx.Const("$intArrayValuesMemory", z3ctx.ArraySort(addrSort, intArraySort)).(z3.Array),
+		intArrayLenMemory:    z3ctx.Const("$intArrayLenMemory", z3ctx.ArraySort(addrSort, z3ctx.IntSort())).(z3.Array),
 
 		floatSort:      z3ctx.FloatSort(11, 53),
 		complexSort:    z3ctx.UninterpretedSort(complexType),
 		stringSort:     z3ctx.UninterpretedSort(stringType),
-		intArraySort:   z3ctx.ArraySort(z3ctx.IntSort(), z3ctx.IntSort()),
+		intArraySort:   intArraySort,
 		intPointerSort: z3ctx.UninterpretedSort(intPointerType),
 
 		addrSort: addrSort,

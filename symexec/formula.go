@@ -32,7 +32,7 @@ type EncodingContext struct {
 	vars  map[string]SymValue
 	funcs map[string]z3.FuncDecl
 
-	intValues            z3.Array
+	intValuesMemory      z3.Array
 	intArrayValuesMemory z3.Array
 	intArrayLenMemory    z3.Array
 
@@ -43,7 +43,6 @@ type EncodingContext struct {
 	intPointerSort z3.Sort
 
 	addrSort z3.Sort
-	null     z3.Sort
 }
 
 func (ctx *EncodingContext) ComplexConst(name string) *Complex {
@@ -392,7 +391,7 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 	case "*":
 		res := uo.Result.Encode(ctx).(z3.Int)
 		arg := uo.Arg.Encode(ctx).(*IntPointer)
-		return res.Eq(ctx.intValues.Select(arg.addr).(z3.Int))
+		return res.Eq(ctx.intValuesMemory.Select(arg.addr).(z3.Int))
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
 	}
