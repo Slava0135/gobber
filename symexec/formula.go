@@ -16,24 +16,34 @@ const (
 	floatType       = "float64"
 	complexType     = "complex128"
 	stringType      = "string"
+	intArrayType    = "[]int"
+	intPointerType  = "*int"
 
 	intSize     = 64
 	floatSize   = 64
 	complexSize = 64
 
 	resultSpecialVar = "$result"
-
-	realFuncName = "real"
-	imagFuncName = "imag"
 )
 
 type EncodingContext struct {
 	*z3.Context
-	vars        map[string]SymValue
-	funcs       map[string]z3.FuncDecl
-	floatSort   z3.Sort
-	complexSort z3.Sort
-	stringSort  z3.Sort
+
+	vars  map[string]SymValue
+	funcs map[string]z3.FuncDecl
+
+	intValues            z3.Array
+	intArrayValuesMemory z3.Array
+	intArrayLenMemory    z3.Array
+
+	floatSort      z3.Sort
+	complexSort    z3.Sort
+	stringSort     z3.Sort
+	intArraySort   z3.Sort
+	intPointerSort z3.Sort
+
+	addrSort z3.Sort
+	null     z3.Sort
 }
 
 func (ctx *EncodingContext) ComplexConst(name string) *Complex {
@@ -47,6 +57,20 @@ func (ctx *EncodingContext) ComplexConst(name string) *Complex {
 func (ctx *EncodingContext) StringConst(name string) *String {
 	return &String{
 		sort: ctx.stringSort,
+	}
+}
+
+func (ctx *EncodingContext) IntArrayConst(name string) *IntArray {
+	return &IntArray{
+		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
+		sort: ctx.intArraySort,
+	}
+}
+
+func (ctx *EncodingContext) IntPointerConst(name string) *IntPointer {
+	return &IntPointer{
+		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
+		sort: ctx.intPointerSort,
 	}
 }
 
@@ -365,6 +389,10 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 	_ = uo.Result.Encode(ctx)
 	_ = uo.Arg.Encode(ctx)
 	switch uo.Op {
+	case "*":
+		res := uo.Result.Encode(ctx).(z3.Int)
+		arg := uo.Arg.Encode(ctx).(*IntPointer)
+		return res.Eq(ctx.intValues.Select(arg.addr).(z3.Int))
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
 	}
@@ -478,10 +506,13 @@ func (f Call) String() string {
 func (f Call) Encode(ctx *EncodingContext) SymValue {
 	// built-in
 	switch f.Name {
-	case realFuncName:
+	case "real":
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
-	case imagFuncName:
+	case "imag":
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
+	case "len":
+		intArray := f.Args[0].Encode(ctx).(*IntArray)
+		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.intArrayLenMemory.Select(intArray.addr).(z3.Int))
 	}
 	if function, ok := ctx.funcs[f.Name]; ok {
 		var args []z3.Value
@@ -561,7 +592,12 @@ func (ia IndexAddr) String() string {
 }
 
 func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
-	panic("")
+	res := ia.Result.Encode(ctx).(*IntPointer).addr
+	array := ia.Array.Encode(ctx).(*IntArray)
+	index := ia.Index.Encode(ctx).(z3.Int)
+	values := ctx.intArrayValuesMemory.Select(array.addr).(z3.Array)
+	value := values.Select(index).(z3.Uninterpreted)
+	return res.Eq(value)
 }
 
 func (ia IndexAddr) ScanVars(vars map[string]Var) {

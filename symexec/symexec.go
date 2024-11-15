@@ -245,13 +245,27 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println()
 
 	z3ctx := z3.NewContext(nil)
+	zero := z3ctx.FromInt(0, z3ctx.IntSort())
+	addrSort := z3ctx.UninterpretedSort("addr")
+	null := z3ctx.Const("$null", addrSort)
+	emptyArray := z3ctx.ConstArray(z3ctx.IntSort(), null)
 	ctx := &EncodingContext{
-		Context:     z3ctx,
-		vars:        make(map[string]SymValue, 0),
-		funcs:       make(map[string]z3.FuncDecl, 0),
-		floatSort:   z3ctx.FloatSort(11, 53),
-		complexSort: z3ctx.UninterpretedSort(complexType),
-		stringSort:  z3ctx.UninterpretedSort(stringType),
+		Context: z3ctx,
+
+		vars:  make(map[string]SymValue, 0),
+		funcs: make(map[string]z3.FuncDecl, 0),
+
+		intValues:            z3ctx.ConstArray(addrSort, zero),
+		intArrayValuesMemory: z3ctx.ConstArray(addrSort, emptyArray),
+		intArrayLenMemory:    z3ctx.ConstArray(addrSort, zero),
+
+		floatSort:      z3ctx.FloatSort(11, 53),
+		complexSort:    z3ctx.UninterpretedSort(complexType),
+		stringSort:     z3ctx.UninterpretedSort(stringType),
+		intArraySort:   z3ctx.ArraySort(z3ctx.IntSort(), z3ctx.IntSort()),
+		intPointerSort: z3ctx.UninterpretedSort(intPointerType),
+
+		addrSort: addrSort,
 	}
 
 	var asserts []z3.Bool
@@ -270,6 +284,10 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 			ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
 		case stringType:
 			ctx.vars[v.Name] = ctx.StringConst(v.Name)
+		case intArrayType:
+			ctx.vars[v.Name] = ctx.IntArrayConst(v.Name)
+		case intPointerType:
+			ctx.vars[v.Name] = ctx.IntPointerConst(v.Name)
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
