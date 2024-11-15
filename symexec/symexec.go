@@ -207,7 +207,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.Convert:
 			subFormulas = append(subFormulas, Convert{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Arg:    Var{Name: v.X.Name(), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
+				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
 			})
 		case *ssa.Phi:
 			mostRecent := 0
@@ -220,6 +220,12 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 			subFormulas = append(subFormulas, Convert{
 				Result: Var{Name: v.Name(), Type: v.Type().String()},
 				Arg:    Var{Name: v.Edges[mostRecent].Name(), Type: v.Edges[mostRecent].Type().String()},
+			})
+		case *ssa.IndexAddr:
+			subFormulas = append(subFormulas, IndexAddr{
+				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Array:  Var{Name: v.X.Name(), Type: v.X.Type().String()},
+				Index:  Var{Name: removeType(v.Index.Name()), Type: v.Index.Type().String(), Constant: isConstant(v.Index.Name())},
 			})
 		default:
 			panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))

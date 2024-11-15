@@ -109,6 +109,12 @@ type Convert struct {
 	Arg    Var
 }
 
+type IndexAddr struct {
+	Result Var
+	Array  Var
+	Index  Var
+}
+
 func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
@@ -548,6 +554,20 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 func (c Convert) ScanVars(vars map[string]Var) {
 	c.Arg.ScanVars(vars)
 	c.Result.ScanVars(vars)
+}
+
+func (ia IndexAddr) String() string {
+	return fmt.Sprintf("%s = &%s[%s]", ia.Result, ia.Array, ia.Index)
+}
+
+func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
+	panic("")
+}
+
+func (ia IndexAddr) ScanVars(vars map[string]Var) {
+	ia.Result.ScanVars(vars)
+	ia.Array.ScanVars(vars)
+	ia.Index.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {
