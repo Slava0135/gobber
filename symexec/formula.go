@@ -2,6 +2,7 @@ package symexec
 
 import (
 	"fmt"
+	"go/types"
 	"math"
 	"strconv"
 	"strings"
@@ -86,7 +87,7 @@ func (ctx *EncodingContext) AddType(t string) z3.Sort {
 }
 
 func (ctx *EncodingContext) AddVar(v Var) {
-	switch v.Type {
+	switch v.Type.String() {
 	case intType, unsignedIntType:
 		i := ctx.IntConst(v.Name)
 		ctx.vars[v.Name] = i
@@ -101,10 +102,10 @@ func (ctx *EncodingContext) AddVar(v Var) {
 	case stringType:
 		ctx.vars[v.Name] = ctx.StringConst(v.Name)
 	default:
-		if strings.HasPrefix(v.Type, pointerTypePrefix) {
-			ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type)
-		} else if strings.HasPrefix(v.Type, arrayTypePrefix) {
-			ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type)
+		if strings.HasPrefix(v.Type.String(), pointerTypePrefix) {
+			ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type.String())
+		} else if strings.HasPrefix(v.Type.String(), arrayTypePrefix) {
+			ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type.String())
 		} else {
 			panic(fmt.Sprintf("unknown type '%s'", v.Type))
 		}
@@ -158,7 +159,7 @@ type Formula interface {
 
 type Var struct {
 	Name     string
-	Type     string
+	Type     types.Type
 	Constant bool
 }
 
@@ -213,12 +214,12 @@ type FieldAddr struct {
 }
 
 func (v Var) String() string {
-	return v.Name + ":" + v.Type
+	return v.Name + ":" + v.Type.String()
 }
 
 func (v Var) Encode(ctx *EncodingContext) SymValue {
 	if v.Constant {
-		switch v.Type {
+		switch v.Type.String() {
 		case intType, unsignedIntType:
 			i, err := strconv.ParseInt(v.Name, 10, intSize)
 			if err != nil {
@@ -626,23 +627,23 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 	unsupportedConv := func() {
 		panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
 	}
-	switch c.Result.Type {
+	switch c.Result.Type.String() {
 	case intType, unsignedIntType:
-		switch c.Arg.Type {
+		switch c.Arg.Type.String() {
 		case intType, unsignedIntType:
 			return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
 		default:
 			unsupportedConv()
 		}
 	case boolType:
-		switch c.Arg.Type {
+		switch c.Arg.Type.String() {
 		case boolType:
 			return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
 		default:
 			unsupportedConv()
 		}
 	case floatType:
-		switch c.Arg.Type {
+		switch c.Arg.Type.String() {
 		case floatType:
 			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
 		case intType, unsignedIntType:
@@ -651,7 +652,7 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 			unsupportedConv()
 		}
 	case complexType:
-		switch c.Arg.Type {
+		switch c.Arg.Type.String() {
 		case complexType:
 			res := c.Result.Encode(ctx).(*Complex)
 			arg := c.Arg.Encode(ctx).(*Complex)

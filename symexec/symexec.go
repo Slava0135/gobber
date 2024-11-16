@@ -168,14 +168,14 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		switch v := v.(type) {
 		case *ssa.BinOp:
 			subFormulas = append(subFormulas, BinOp{
-				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
-				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
+				Result: Var{Name: removeType(v.Name()), Type: v.Type()},
+				Left:   Var{Name: removeType(v.X.Name()), Type: v.X.Type(), Constant: isConstant(v.X.Name())},
 				Op:     v.Op.String(),
-				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type().String(), Constant: isConstant(v.Y.Name())},
+				Right:  Var{Name: removeType(v.Y.Name()), Type: v.Y.Type(), Constant: isConstant(v.Y.Name())},
 			})
 		case *ssa.If:
 			subFormulas = append(subFormulas, If{
-				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type().String(), Constant: isConstant(v.Cond.Name())},
+				Cond: Var{Name: v.Cond.Name(), Type: v.Cond.Type(), Constant: isConstant(v.Cond.Name())},
 				Then: getBlockFormula(blocks, block.Succs[0].Index, newVisitOrder, depth+1),
 				Else: getBlockFormula(blocks, block.Succs[1].Index, newVisitOrder, depth+1),
 			})
@@ -184,31 +184,31 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.Return:
 			var results []Var
 			for _, r := range v.Results {
-				results = append(results, Var{Name: removeType(r.Name()), Type: r.Type().String(), Constant: isConstant(r.Name())})
+				results = append(results, Var{Name: removeType(r.Name()), Type: r.Type(), Constant: isConstant(r.Name())})
 			}
 			subFormulas = append(subFormulas, Return{
 				Results: results,
 			})
 		case *ssa.UnOp:
 			subFormulas = append(subFormulas, UnOp{
-				Result: Var{Name: removeType(v.Name()), Type: v.Type().String()},
-				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
+				Result: Var{Name: removeType(v.Name()), Type: v.Type()},
+				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type(), Constant: isConstant(v.X.Name())},
 				Op:     v.Op.String(),
 			})
 		case *ssa.Call:
 			var args []Var
 			for _, a := range v.Call.Args {
-				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type().String(), Constant: isConstant(a.Name())})
+				args = append(args, Var{Name: removeType(a.Name()), Type: a.Type(), Constant: isConstant(a.Name())})
 			}
 			subFormulas = append(subFormulas, Call{
-				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Result: Var{Name: v.Name(), Type: v.Type()},
 				Name:   removeArgs(v.Call.String()),
 				Args:   args,
 			})
 		case *ssa.Convert:
 			subFormulas = append(subFormulas, Convert{
-				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type().String(), Constant: isConstant(v.X.Name())},
+				Result: Var{Name: v.Name(), Type: v.Type()},
+				Arg:    Var{Name: removeType(v.X.Name()), Type: v.X.Type(), Constant: isConstant(v.X.Name())},
 			})
 		case *ssa.Phi:
 			mostRecent := 0
@@ -219,19 +219,19 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 				}
 			}
 			subFormulas = append(subFormulas, Convert{
-				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Arg:    Var{Name: v.Edges[mostRecent].Name(), Type: v.Edges[mostRecent].Type().String()},
+				Result: Var{Name: v.Name(), Type: v.Type()},
+				Arg:    Var{Name: v.Edges[mostRecent].Name(), Type: v.Edges[mostRecent].Type()},
 			})
 		case *ssa.IndexAddr:
 			subFormulas = append(subFormulas, IndexAddr{
-				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Array:  Var{Name: v.X.Name(), Type: v.X.Type().String()},
-				Index:  Var{Name: removeType(v.Index.Name()), Type: v.Index.Type().String(), Constant: isConstant(v.Index.Name())},
+				Result: Var{Name: v.Name(), Type: v.Type()},
+				Array:  Var{Name: v.X.Name(), Type: v.X.Type()},
+				Index:  Var{Name: removeType(v.Index.Name()), Type: v.Index.Type(), Constant: isConstant(v.Index.Name())},
 			})
 		case *ssa.FieldAddr:
 			subFormulas = append(subFormulas, FieldAddr{
-				Result: Var{Name: v.Name(), Type: v.Type().String()},
-				Object: Var{Name: v.X.Name(), Type: v.X.Type().String()},
+				Result: Var{Name: v.Name(), Type: v.Type()},
+				Object: Var{Name: v.X.Name(), Type: v.X.Type()},
 				Field:  v.Field,
 			})
 		default:
@@ -270,7 +270,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	}
 
 	for _, v := range vars {
-		ctx.AddType(v.Type)
+		ctx.AddType(v.Type.String())
 	}
 
 	for _, v := range vars {
