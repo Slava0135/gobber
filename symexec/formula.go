@@ -3,6 +3,7 @@ package symexec
 import (
 	"fmt"
 	"go/types"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -79,31 +80,42 @@ func (v Var) String() string {
 
 func (v Var) Encode(ctx *EncodingContext) SymValue {
 	if v.Constant {
-		switch v.Type.String() {
-		case intType, unsignedIntType:
-			i, err := strconv.ParseInt(v.Name, 10, intSize)
-			if err != nil {
-				panic(err)
+		switch t := v.Type.(type) {
+		case *types.Basic:
+			switch t.Kind() {
+			case types.Uint:
+				i, err := strconv.ParseUint(v.Name, 10, intSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromBigInt(new(big.Int).SetUint64(i), ctx.IntSort())
+			case types.Int:
+				i, err := strconv.ParseInt(v.Name, 10, intSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromInt(i, ctx.IntSort())
+			case types.Bool:
+				b, err := strconv.ParseBool(v.Name)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromBool(b)
+			case types.Float64:
+				f, err := strconv.ParseFloat(v.Name, floatSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromFloat64(f, ctx.floatSort)
+			case types.Complex128:
+				c, err := strconv.ParseComplex(v.Name, complexSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromComplex128(c)
+			default:
+				panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 			}
-			return ctx.FromInt(i, ctx.IntSort())
-		case boolType:
-			b, err := strconv.ParseBool(v.Name)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromBool(b)
-		case floatType:
-			f, err := strconv.ParseFloat(v.Name, floatSize)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromFloat64(f, ctx.floatSort)
-		case complexType:
-			c, err := strconv.ParseComplex(v.Name, complexSize)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromComplex128(c)
 		default:
 			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 		}
