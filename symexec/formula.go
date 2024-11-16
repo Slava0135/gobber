@@ -2,6 +2,7 @@ package symexec
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -16,8 +17,9 @@ const (
 	floatType       = "float64"
 	complexType     = "complex128"
 	stringType      = "string"
-	intArrayType    = "[]int"
-	intPointerType  = "*int"
+
+	arrayTypePrefix   = "[]"
+	pointerTypePrefix = "*"
 
 	intSize     = 64
 	floatSize   = 64
@@ -29,20 +31,80 @@ const (
 type EncodingContext struct {
 	*z3.Context
 
-	vars  map[string]SymValue
-	funcs map[string]z3.FuncDecl
+	asserts []z3.Bool
 
-	intValuesMemory      z3.Array
-	intArrayValuesMemory z3.Array
-	intArrayLenMemory    z3.Array
+	vars     map[string]SymValue
+	funcs    map[string]z3.FuncDecl
+	rawTypes map[string]z3.Sort
 
-	floatSort      z3.Sort
-	complexSort    z3.Sort
-	stringSort     z3.Sort
-	intArraySort   z3.Sort
-	intPointerSort z3.Sort
+	valuesMemory      map[string]z3.Array
+	arrayValuesMemory map[string]z3.Array
+	arrayLenMemory    map[string]z3.Array
+
+	floatSort   z3.Sort
+	complexSort z3.Sort
+	stringSort  z3.Sort
 
 	addrSort z3.Sort
+}
+
+func (ctx *EncodingContext) AddType(t string) z3.Sort {
+	if _, ok := ctx.rawTypes[t]; !ok {
+		switch t {
+		case intType, unsignedIntType:
+			ctx.rawTypes[t] = ctx.IntSort()
+		case boolType:
+			ctx.rawTypes[t] = ctx.BoolSort()
+		case floatType:
+			ctx.rawTypes[t] = ctx.floatSort
+		default:
+			if strings.HasPrefix(t, pointerTypePrefix) {
+				valueT := ctx.AddType(strings.TrimPrefix(t, pointerTypePrefix))
+				ctx.valuesMemory[t] = ctx.Const(fmt.Sprintf("$<%s>Memory", t), ctx.ArraySort(ctx.addrSort, valueT)).(z3.Array)
+				ctx.rawTypes[t] = ctx.addrSort
+			} else if strings.HasPrefix(t, arrayTypePrefix) {
+				valueT := ctx.AddType("*" + strings.TrimPrefix(t, arrayTypePrefix))
+				ctx.arrayValuesMemory[t] = ctx.Const(
+					fmt.Sprintf("$<%s>ValuesMemory", t),
+					ctx.ArraySort(ctx.addrSort, ctx.ArraySort(ctx.IntSort(), valueT)),
+				).(z3.Array)
+				ctx.arrayLenMemory[t] = ctx.Const(
+					fmt.Sprintf("$<%s>LenMemory", t),
+					ctx.ArraySort(ctx.addrSort, ctx.IntSort()),
+				).(z3.Array)
+				ctx.rawTypes[t] = ctx.addrSort
+			} else {
+				panic(fmt.Sprintf("unknown type '%s'", t))
+			}
+		}
+	}
+	return ctx.rawTypes[t]
+}
+
+func (ctx *EncodingContext) AddVar(v Var) {
+	switch v.Type {
+	case intType, unsignedIntType:
+		i := ctx.IntConst(v.Name)
+		ctx.vars[v.Name] = i
+		ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt64, ctx.IntSort()).(z3.Int)))
+		ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt64, ctx.IntSort()).(z3.Int)))
+	case boolType:
+		ctx.vars[v.Name] = ctx.BoolConst(v.Name)
+	case floatType:
+		ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
+	case complexType:
+		ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
+	case stringType:
+		ctx.vars[v.Name] = ctx.StringConst(v.Name)
+	default:
+		if strings.HasPrefix(v.Type, pointerTypePrefix) {
+			ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type)
+		} else if strings.HasPrefix(v.Type, arrayTypePrefix) {
+			ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type)
+		} else {
+			panic(fmt.Sprintf("unknown type '%s'", v.Type))
+		}
+	}
 }
 
 func (ctx *EncodingContext) ComplexConst(name string) *Complex {
@@ -59,17 +121,19 @@ func (ctx *EncodingContext) StringConst(name string) *String {
 	}
 }
 
-func (ctx *EncodingContext) IntArrayConst(name string) *IntArray {
-	return &IntArray{
+func (ctx *EncodingContext) SymArrayConst(name string, t string) *SymArray {
+	return &SymArray{
 		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
-		sort: ctx.intArraySort,
+		t:    t,
+		sort: ctx.rawTypes[t],
 	}
 }
 
-func (ctx *EncodingContext) IntPointerConst(name string) *IntPointer {
-	return &IntPointer{
+func (ctx *EncodingContext) PointerConst(name string, t string) *Pointer {
+	return &Pointer{
 		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
-		sort: ctx.intPointerSort,
+		t:    t,
+		sort: ctx.rawTypes[t],
 	}
 }
 
@@ -395,9 +459,17 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 	_ = uo.Arg.Encode(ctx)
 	switch uo.Op {
 	case "*":
-		res := uo.Result.Encode(ctx).(z3.Int)
-		arg := uo.Arg.Encode(ctx).(*IntPointer)
-		return res.Eq(ctx.intValuesMemory.Select(arg.addr).(z3.Int))
+		arg := uo.Arg.Encode(ctx).(*Pointer)
+		switch result := uo.Result.Encode(ctx).(type) {
+		case z3.Int:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Int))
+		case z3.Bool:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Bool))
+		case z3.Float:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
+		default:
+			panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg))
+		}
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
 	}
@@ -516,8 +588,8 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 	case "imag":
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
 	case "len":
-		intArray := f.Args[0].Encode(ctx).(*IntArray)
-		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.intArrayLenMemory.Select(intArray.addr).(z3.Int))
+		arr := f.Args[0].Encode(ctx).(*SymArray)
+		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
 	}
 	if function, ok := ctx.funcs[f.Name]; ok {
 		var args []z3.Value
@@ -597,10 +669,10 @@ func (ia IndexAddr) String() string {
 }
 
 func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
-	res := ia.Result.Encode(ctx).(*IntPointer).addr
-	array := ia.Array.Encode(ctx).(*IntArray)
+	res := ia.Result.Encode(ctx).(*Pointer).addr
+	array := ia.Array.Encode(ctx).(*SymArray)
 	index := ia.Index.Encode(ctx).(z3.Int)
-	values := ctx.intArrayValuesMemory.Select(array.addr).(z3.Array)
+	values := ctx.arrayValuesMemory[array.t].Select(array.addr).(z3.Array)
 	value := values.Select(index).(z3.Uninterpreted)
 	return res.Eq(value)
 }

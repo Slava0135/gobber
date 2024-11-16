@@ -7,7 +7,6 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"math"
 	"os"
 	"strings"
 
@@ -242,7 +241,6 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 
 func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "listing all variables")
-
 	vars := make(map[string]Var, 0)
 	f.ScanVars(vars)
 	for _, v := range vars {
@@ -251,50 +249,30 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println()
 
 	z3ctx := z3.NewContext(nil)
-	addrSort := z3ctx.UninterpretedSort("addr")
-	intArraySort := z3ctx.ArraySort(z3ctx.IntSort(), addrSort)
 	ctx := &EncodingContext{
 		Context: z3ctx,
 
-		vars:  make(map[string]SymValue, 0),
-		funcs: make(map[string]z3.FuncDecl, 0),
+		vars:     make(map[string]SymValue, 0),
+		funcs:    make(map[string]z3.FuncDecl, 0),
+		rawTypes: make(map[string]z3.Sort, 0),
 
-		intValuesMemory:      z3ctx.Const("$intValuesMemory", z3ctx.ArraySort(addrSort, z3ctx.IntSort())).(z3.Array),
-		intArrayValuesMemory: z3ctx.Const("$intArrayValuesMemory", z3ctx.ArraySort(addrSort, intArraySort)).(z3.Array),
-		intArrayLenMemory:    z3ctx.Const("$intArrayLenMemory", z3ctx.ArraySort(addrSort, z3ctx.IntSort())).(z3.Array),
+		valuesMemory:      make(map[string]z3.Array),
+		arrayValuesMemory: make(map[string]z3.Array),
+		arrayLenMemory:    make(map[string]z3.Array),
 
-		floatSort:      z3ctx.FloatSort(11, 53),
-		complexSort:    z3ctx.UninterpretedSort(complexType),
-		stringSort:     z3ctx.UninterpretedSort(stringType),
-		intArraySort:   intArraySort,
-		intPointerSort: z3ctx.UninterpretedSort(intPointerType),
+		floatSort:   z3ctx.FloatSort(11, 53),
+		complexSort: z3ctx.UninterpretedSort(complexType),
+		stringSort:  z3ctx.UninterpretedSort(stringType),
 
-		addrSort: addrSort,
+		addrSort: z3ctx.UninterpretedSort("$addr"),
 	}
 
-	var asserts []z3.Bool
 	for _, v := range vars {
-		switch v.Type {
-		case intType, unsignedIntType:
-			i := ctx.IntConst(v.Name)
-			ctx.vars[v.Name] = i
-			asserts = append(asserts, i.LE(ctx.FromInt(math.MaxInt64, ctx.IntSort()).(z3.Int)))
-			asserts = append(asserts, i.GE(ctx.FromInt(math.MinInt64, ctx.IntSort()).(z3.Int)))
-		case boolType:
-			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
-		case floatType:
-			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
-		case complexType:
-			ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
-		case stringType:
-			ctx.vars[v.Name] = ctx.StringConst(v.Name)
-		case intArrayType:
-			ctx.vars[v.Name] = ctx.IntArrayConst(v.Name)
-		case intPointerType:
-			ctx.vars[v.Name] = ctx.IntPointerConst(v.Name)
-		default:
-			panic(fmt.Sprintf("unknown type '%s'", v.Type))
-		}
+		ctx.AddType(v.Type)
+	}
+
+	for _, v := range vars {
+		ctx.AddVar(v)
 	}
 
 	fmt.Println("::", "encoding formula in Z3")
@@ -304,7 +282,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "solving")
 	solver := z3.NewSolver(ctx.Context)
 	solver.Assert(encodedFormula)
-	for _, a := range asserts {
+	for _, a := range ctx.asserts {
 		solver.Assert(a)
 	}
 	sat, err := solver.Check()

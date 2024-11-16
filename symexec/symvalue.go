@@ -16,13 +16,15 @@ type String struct {
 	sort z3.Sort
 }
 
-type IntArray struct {
+type Pointer struct {
 	addr z3.Uninterpreted
+	t    string
 	sort z3.Sort
 }
 
-type IntPointer struct {
+type SymArray struct {
 	addr z3.Uninterpreted
+	t    string
 	sort z3.Sort
 }
 
@@ -34,10 +36,10 @@ func (s *String) Sort() z3.Sort {
 	return s.sort
 }
 
-func (ia *IntArray) Sort() z3.Sort {
-	return ia.sort
+func (p *Pointer) Sort() z3.Sort {
+	return p.sort
 }
 
-func (ip *IntPointer) Sort() z3.Sort {
-	return ip.sort
+func (sa *SymArray) Sort() z3.Sort {
+	return sa.sort
 }
