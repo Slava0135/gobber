@@ -8,6 +8,7 @@ import (
 	"go/token"
 	"go/types"
 	"os"
+	"runtime/debug"
 	"strings"
 
 	"github.com/aclements/go-z3/z3"
@@ -60,6 +61,7 @@ func staticFunction(fn *ssa.Function) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("[ERROR]", r)
+			fmt.Println(string(debug.Stack()))
 		}
 	}()
 	fmt.Println("::", "analyzing function", "'"+fn.Name()+"'")
