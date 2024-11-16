@@ -113,12 +113,9 @@ func (v Var) Encode(ctx *EncodingContext) SymValue {
 					panic(err)
 				}
 				return ctx.FromComplex128(c)
-			default:
-				panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 			}
-		default:
-			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 		}
+		panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 	}
 	if v, ok := ctx.vars[v.Name]; ok {
 		return v
@@ -144,9 +141,6 @@ func (bo BinOp) String() string {
 }
 
 func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
-	unknownOp := func(op string, sort z3.Sort) {
-		panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", op, sort))
-	}
 	res := bo.Result.Encode(ctx)
 	left := bo.Left.Encode(ctx)
 	right := bo.Right.Encode(ctx)
@@ -162,8 +156,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			rightCx := right.(*Complex)
 			return resCx.real.Eq(left.real.Add(rightCx.real)).And(
 				resCx.imag.Eq(left.imag.Add(rightCx.imag)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "-":
 		switch left := left.(type) {
@@ -176,8 +168,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			rightCx := right.(*Complex)
 			return resCx.real.Eq(left.real.Sub(rightCx.real)).And(
 				resCx.imag.Eq(left.imag.Sub(rightCx.imag)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "*":
 		switch left := left.(type) {
@@ -195,8 +185,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			d := rightCx.imag
 			return resCx.real.Eq(a.Mul(c).Sub(b.Mul(d))).And(
 				resCx.imag.Eq(a.Mul(d).Add(b.Mul(c))))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "/":
 		switch left := left.(type) {
@@ -215,15 +203,11 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			denom := c.Mul(c).Add(d.Mul(d))
 			return resCx.real.Eq(a.Mul(c).Add(b.Mul(d)).Div(denom)).And(
 				resCx.imag.Eq(b.Mul(c).Sub(a.Mul(d)).Div(denom)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "%":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Mod(right.(z3.Int)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">":
 		switch left := left.(type) {
@@ -231,8 +215,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">=":
 		switch left := left.(type) {
@@ -240,8 +222,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.GE(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.GE(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<":
 		switch left := left.(type) {
@@ -249,8 +229,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<=":
 		switch left := left.(type) {
@@ -258,8 +236,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.LE(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.LE(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "==":
 		switch left := left.(type) {
@@ -267,8 +243,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.IEEEEq(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<<":
 		switch left := left.(type) {
@@ -276,8 +250,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Lsh(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">>":
 		switch left := left.(type) {
@@ -285,8 +257,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.SRsh(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "^":
 		switch left := left.(type) {
@@ -294,8 +264,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Xor(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "&":
 		switch left := left.(type) {
@@ -303,8 +271,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.And(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "|":
 		switch left := left.(type) {
@@ -312,13 +278,9 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Or(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
-	default:
-		panic(fmt.Sprintf("unknown binary operation '%s'", bo.Op))
 	}
-	panic("unreachable")
+	panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
 }
 
 func (bo BinOp) ScanVars(vars map[string]Var) {
@@ -332,24 +294,21 @@ func (uo UnOp) String() string {
 }
 
 func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
-	_ = uo.Result.Encode(ctx)
-	_ = uo.Arg.Encode(ctx)
+	result := uo.Result.Encode(ctx)
+	arg := uo.Arg.Encode(ctx)
 	switch uo.Op {
 	case "*":
-		arg := uo.Arg.Encode(ctx).(*Pointer)
-		switch result := uo.Result.Encode(ctx).(type) {
+		arg := arg.(*Pointer)
+		switch result := result.(type) {
 		case z3.Int:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Int))
 		case z3.Bool:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Bool))
 		case z3.Float:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
-		default:
-			panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.sort))
 		}
-	default:
-		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
 	}
+	panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.Sort()))
 }
 
 func (uo UnOp) ScanVars(vars map[string]Var) {
@@ -382,9 +341,8 @@ func (ret Return) Encode(ctx *EncodingContext) SymValue {
 			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
 		case *String:
 			return result
-		default:
-			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}
+		panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 	}
 	panic("result var not found")
 }
@@ -476,7 +434,7 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 		var res = f.Result.Encode(ctx)
 		switch res := res.(type) {
 		case z3.Int:
-			res.Eq(function.Apply(args...).(z3.Int))
+			return res.Eq(function.Apply(args...).(z3.Int))
 		default:
 			panic(fmt.Sprintf("unknown sort '%s'", res.Sort()))
 		}
