@@ -270,7 +270,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	}
 
 	for _, v := range vars {
-		ctx.AddType(v.Type.String())
+		ctx.AddType(v.Type)
 	}
 
 	for _, v := range vars {

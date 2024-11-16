@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/types"
 	"math"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -18,9 +19,6 @@ const (
 	floatType       = "float64"
 	complexType     = "complex128"
 	stringType      = "string"
-
-	arrayTypePrefix   = "[]"
-	pointerTypePrefix = "*"
 
 	intSize     = 64
 	floatSize   = 64
@@ -49,66 +47,75 @@ type EncodingContext struct {
 	addrSort z3.Sort
 }
 
-func (ctx *EncodingContext) AddType(t string) z3.Sort {
-	if _, ok := ctx.rawTypes[t]; !ok {
-		switch t {
-		case intType, unsignedIntType:
-			ctx.rawTypes[t] = ctx.IntSort()
-		case boolType:
-			ctx.rawTypes[t] = ctx.BoolSort()
-		case floatType:
-			ctx.rawTypes[t] = ctx.floatSort
-		case complexType:
-			// TODO: complex number representation as z3.Sort
-		case stringType:
-			// TODO: string representation as z3.Sort
-		default:
-			if strings.HasPrefix(t, pointerTypePrefix) {
-				valueT := ctx.AddType(strings.TrimPrefix(t, pointerTypePrefix))
-				ctx.valuesMemory[t] = ctx.Const(fmt.Sprintf("$<%s>Memory", t), ctx.ArraySort(ctx.addrSort, valueT)).(z3.Array)
-				ctx.rawTypes[t] = ctx.addrSort
-			} else if strings.HasPrefix(t, arrayTypePrefix) {
-				valueT := ctx.AddType("*" + strings.TrimPrefix(t, arrayTypePrefix))
-				ctx.arrayValuesMemory[t] = ctx.Const(
-					fmt.Sprintf("$<%s>ValuesMemory", t),
-					ctx.ArraySort(ctx.addrSort, ctx.ArraySort(ctx.IntSort(), valueT)),
-				).(z3.Array)
-				ctx.arrayLenMemory[t] = ctx.Const(
-					fmt.Sprintf("$<%s>LenMemory", t),
-					ctx.ArraySort(ctx.addrSort, ctx.IntSort()),
-				).(z3.Array)
-				ctx.rawTypes[t] = ctx.addrSort
-			} else {
-				panic(fmt.Sprintf("unknown type '%s'", t))
+func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
+	if _, ok := ctx.rawTypes[t.String()]; !ok {
+		switch t := t.(type) {
+		case *types.Basic:
+			switch t.Kind() {
+			case types.Int:
+				ctx.rawTypes[t.String()] = ctx.IntSort()
+			case types.Bool:
+				ctx.rawTypes[t.String()] = ctx.BoolSort()
+			case types.Float64:
+				ctx.rawTypes[t.String()] = ctx.floatSort
+			case types.Complex128:
+				// TODO: complex number representation as z3.Sort
+			case types.String:
+				// TODO: string representation as z3.Sort
+			default:
+				panic(fmt.Sprintf("unknown basic type '%s'", t))
 			}
+		case *types.Pointer:
+			elemT := ctx.AddType(t.Elem())
+			ctx.valuesMemory[t.String()] = ctx.Const(fmt.Sprintf("$<%s>Memory", t), ctx.ArraySort(ctx.addrSort, elemT)).(z3.Array)
+			ctx.rawTypes[t.String()] = ctx.addrSort
+		case *types.Slice:
+			elemT := ctx.AddType(types.NewPointer(t.Elem()))
+			ctx.arrayValuesMemory[t.String()] = ctx.Const(
+				fmt.Sprintf("$<%s>ValuesMemory", t),
+				ctx.ArraySort(ctx.addrSort, ctx.ArraySort(ctx.IntSort(), elemT)),
+			).(z3.Array)
+			ctx.arrayLenMemory[t.String()] = ctx.Const(
+				fmt.Sprintf("$<%s>LenMemory", t),
+				ctx.ArraySort(ctx.addrSort, ctx.IntSort()),
+			).(z3.Array)
+			ctx.rawTypes[t.String()] = ctx.addrSort
+		default:
+			panic(fmt.Sprintf("unknown type '%s'", t))
 		}
 	}
-	return ctx.rawTypes[t]
+	return ctx.rawTypes[t.String()]
 }
 
 func (ctx *EncodingContext) AddVar(v Var) {
-	switch v.Type.String() {
-	case intType, unsignedIntType:
-		i := ctx.IntConst(v.Name)
-		ctx.vars[v.Name] = i
-		ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt64, ctx.IntSort()).(z3.Int)))
-		ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt64, ctx.IntSort()).(z3.Int)))
-	case boolType:
-		ctx.vars[v.Name] = ctx.BoolConst(v.Name)
-	case floatType:
-		ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
-	case complexType:
-		ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
-	case stringType:
-		ctx.vars[v.Name] = ctx.StringConst(v.Name)
-	default:
-		if strings.HasPrefix(v.Type.String(), pointerTypePrefix) {
-			ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type.String())
-		} else if strings.HasPrefix(v.Type.String(), arrayTypePrefix) {
-			ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type.String())
-		} else {
-			panic(fmt.Sprintf("unknown type '%s'", v.Type))
+	switch t := v.Type.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Int:
+			i := ctx.IntConst(v.Name)
+			ctx.vars[v.Name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt, ctx.IntSort()).(z3.Int)))
+		case types.Uint:
+			i := ctx.IntConst(v.Name)
+			ctx.vars[v.Name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromBigInt(new(big.Int).SetUint64(math.MaxUint), ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
+		case types.Bool:
+			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
+		case types.Float64:
+			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
+		case types.Complex128:
+			ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
+		case types.String:
+			ctx.vars[v.Name] = ctx.StringConst(v.Name)
 		}
+	case *types.Pointer:
+		ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type.String())
+	case *types.Slice:
+		ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type.String())
+	default:
+		panic(fmt.Sprintf("unknown type '%s'", v.Type))
 	}
 }
 
