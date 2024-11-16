@@ -57,6 +57,10 @@ func (ctx *EncodingContext) AddType(t string) z3.Sort {
 			ctx.rawTypes[t] = ctx.BoolSort()
 		case floatType:
 			ctx.rawTypes[t] = ctx.floatSort
+		case complexType:
+			// TODO: complex number representation as z3.Sort
+		case stringType:
+			// TODO: string representation as z3.Sort
 		default:
 			if strings.HasPrefix(t, pointerTypePrefix) {
 				valueT := ctx.AddType(strings.TrimPrefix(t, pointerTypePrefix))
