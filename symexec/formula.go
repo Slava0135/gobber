@@ -468,7 +468,7 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 		case z3.Float:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
 		default:
-			panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg))
+			panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.sort))
 		}
 	default:
 		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
