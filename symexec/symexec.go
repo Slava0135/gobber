@@ -227,6 +227,12 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 				Array:  Var{Name: v.X.Name(), Type: v.X.Type().String()},
 				Index:  Var{Name: removeType(v.Index.Name()), Type: v.Index.Type().String(), Constant: isConstant(v.Index.Name())},
 			})
+		case *ssa.FieldAddr:
+			subFormulas = append(subFormulas, FieldAddr{
+				Result: Var{Name: v.Name(), Type: v.Type().String()},
+				Object: Var{Name: v.X.Name(), Type: v.X.Type().String()},
+				Field:  v.Field,
+			})
 		default:
 			panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))
 		}

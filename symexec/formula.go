@@ -138,6 +138,12 @@ type IndexAddr struct {
 	Index  Var
 }
 
+type FieldAddr struct {
+	Result Var
+	Object Var
+	Field  int
+}
+
 func (v Var) String() string {
 	return v.Name + ":" + v.Type
 }
@@ -603,6 +609,19 @@ func (ia IndexAddr) ScanVars(vars map[string]Var) {
 	ia.Result.ScanVars(vars)
 	ia.Array.ScanVars(vars)
 	ia.Index.ScanVars(vars)
+}
+
+func (fa FieldAddr) String() string {
+	return fmt.Sprintf("%s = &%s#%d", fa.Result, fa.Object, fa.Field)
+}
+
+func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
+	panic("")
+}
+
+func (fa FieldAddr) ScanVars(vars map[string]Var) {
+	fa.Result.ScanVars(vars)
+	fa.Object.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {
