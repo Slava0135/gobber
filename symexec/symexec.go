@@ -263,8 +263,8 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		arrayLenMemory:    make(map[string]z3.Array),
 
 		floatSort:   z3ctx.FloatSort(11, 53),
-		complexSort: z3ctx.UninterpretedSort(complexType),
-		stringSort:  z3ctx.UninterpretedSort(stringType),
+		complexSort: z3ctx.UninterpretedSort("complex128"),
+		stringSort:  z3ctx.UninterpretedSort("string"),
 
 		addrSort: z3ctx.UninterpretedSort("$addr"),
 	}

@@ -10,13 +10,6 @@ import (
 )
 
 const (
-	unsignedIntType = "uint"
-	intType         = "int"
-	boolType        = "bool"
-	floatType       = "float64"
-	complexType     = "complex128"
-	stringType      = "string"
-
 	intSize     = 64
 	floatSize   = 64
 	complexSize = 64

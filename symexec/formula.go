@@ -132,7 +132,7 @@ func (v Var) ScanVars(vars map[string]Var) {
 	}
 	if oldV, ok := vars[v.Name]; ok {
 		if oldV.Type != v.Type {
-			panic(fmt.Sprintf("variable '%s' can't different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))
+			panic(fmt.Sprintf("variable '%s' can't have different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))
 		}
 		return
 	}
@@ -496,44 +496,30 @@ func (c Convert) String() string {
 }
 
 func (c Convert) Encode(ctx *EncodingContext) SymValue {
-	unsupportedConv := func() {
-		panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
+	switch resT := c.Result.Type.(type) {
+	case *types.Basic:
+		switch resT.Kind() {
+		case types.Int, types.Uint:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Int, types.Uint:
+					return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+				}
+			}
+		case types.Float64:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Float64:
+					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
+				case types.Int, types.Uint:
+					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
+				}
+			}
+		}
 	}
-	switch c.Result.Type.String() {
-	case intType, unsignedIntType:
-		switch c.Arg.Type.String() {
-		case intType, unsignedIntType:
-			return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
-		default:
-			unsupportedConv()
-		}
-	case boolType:
-		switch c.Arg.Type.String() {
-		case boolType:
-			return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
-		default:
-			unsupportedConv()
-		}
-	case floatType:
-		switch c.Arg.Type.String() {
-		case floatType:
-			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
-		case intType, unsignedIntType:
-			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
-		default:
-			unsupportedConv()
-		}
-	case complexType:
-		switch c.Arg.Type.String() {
-		case complexType:
-			res := c.Result.Encode(ctx).(*Complex)
-			arg := c.Arg.Encode(ctx).(*Complex)
-			return res.real.Eq(arg.real).And(res.imag.Eq(arg.imag))
-		}
-	default:
-		unsupportedConv()
-	}
-	panic("unreachable")
+	panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
 }
 
 func (c Convert) ScanVars(vars map[string]Var) {
