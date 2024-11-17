@@ -30,34 +30,40 @@ func Static() {
 	}
 
 	for _, tc := range testcases {
-		fmt.Printf(":: building SSA graph for file '%s'\n", tc.Name())
-
-		fset := token.NewFileSet()
-		f, err := parser.ParseFile(fset, tc.Name(), nil, 0)
-		if err != nil {
-			panic(err)
-		}
-
-		files := []*ast.File{f}
-
-		pkg := types.NewPackage("main", "")
-
-		main, _, err := ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset, pkg, files, 0)
-		if err != nil {
-			panic(err)
-		}
-
-		for _, v := range main.Members {
-			if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
-				staticFunction(fn)
-			}
-		}
-
-		fmt.Println()
+		AnalyzeFile(tc.Name())
 	}
 }
 
-func staticFunction(fn *ssa.Function) {
+func AnalyzeFile(tc string) map[string]bool {
+	fmt.Printf(":: building SSA graph for file '%s'\n", tc)
+	
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, tc, nil, 0)
+	if err != nil {
+		panic(err)
+	}
+	
+	files := []*ast.File{f}
+	
+	pkg := types.NewPackage("main", "")
+	
+	main, _, err := ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset, pkg, files, 0)
+	if err != nil {
+		panic(err)
+	}
+	
+	res := make(map[string]bool, 0)
+	for _, v := range main.Members {
+		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
+			res[fn.Name()] = staticFunction(fn)
+		}
+	}
+
+	fmt.Println()
+	return res
+}
+
+func staticFunction(fn *ssa.Function) (ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("[ERROR]", r)
@@ -71,6 +77,7 @@ func staticFunction(fn *ssa.Function) {
 	f := makeFormula(fn)
 	fmt.Println("::", "encoding formula")
 	encodeFormula(fn, f)
+	return true
 }
 
 func printBlocks(fn *ssa.Function) {
