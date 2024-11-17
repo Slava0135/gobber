@@ -231,7 +231,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 		case *ssa.FieldAddr:
 			subFormulas = append(subFormulas, FieldAddr{
 				Result: Var{Name: v.Name(), Type: v.Type()},
-				Object: Var{Name: v.X.Name(), Type: v.X.Type()},
+				Struct: Var{Name: v.X.Name(), Type: v.X.Type()},
 				Field:  v.Field,
 			})
 		default:

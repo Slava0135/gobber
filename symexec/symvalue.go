@@ -28,6 +28,12 @@ type SymArray struct {
 	sort z3.Sort
 }
 
+type SymStruct struct {
+	addr z3.Uninterpreted
+	t    string
+	sort z3.Sort
+}
+
 func (c *Complex) Sort() z3.Sort {
 	return c.sort
 }
@@ -42,4 +48,8 @@ func (p *Pointer) Sort() z3.Sort {
 
 func (sa *SymArray) Sort() z3.Sort {
 	return sa.sort
+}
+
+func (ss *SymStruct) Sort() z3.Sort {
+	return ss.sort
 }

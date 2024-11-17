@@ -70,7 +70,7 @@ type IndexAddr struct {
 
 type FieldAddr struct {
 	Result Var
-	Object Var
+	Struct Var
 	Field  int
 }
 
@@ -505,16 +505,20 @@ func (ia IndexAddr) ScanVars(vars map[string]Var) {
 }
 
 func (fa FieldAddr) String() string {
-	return fmt.Sprintf("%s = &%s#%d", fa.Result, fa.Object, fa.Field)
+	return fmt.Sprintf("%s = &%s#%d", fa.Result, fa.Struct, fa.Field)
 }
 
 func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
-	panic("")
+	res := fa.Result.Encode(ctx).(*Pointer).addr
+	symStruct := fa.Struct.Encode(ctx).(*SymStruct)
+	fields := ctx.fieldsMemory[symStruct.t]
+	value := fields[fa.Field].Select(symStruct.addr).(z3.Uninterpreted)
+	return res.Eq(value)
 }
 
 func (fa FieldAddr) ScanVars(vars map[string]Var) {
 	fa.Result.ScanVars(vars)
-	fa.Object.ScanVars(vars)
+	fa.Struct.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {

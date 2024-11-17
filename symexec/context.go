@@ -26,6 +26,7 @@ type EncodingContext struct {
 	funcs    map[string]z3.FuncDecl
 	rawTypes map[string]z3.Sort
 
+	fieldsMemory      map[string][]z3.Array
 	valuesMemory      map[string]z3.Array
 	arrayValuesMemory map[string]z3.Array
 	arrayLenMemory    map[string]z3.Array
@@ -70,6 +71,19 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 				ctx.ArraySort(ctx.addrSort, ctx.IntSort()),
 			).(z3.Array)
 			ctx.rawTypes[t.String()] = ctx.addrSort
+		case *types.Struct:
+			var fields []z3.Array
+			for i := 0; i < t.NumFields(); i++ {
+				f := t.Field(i)
+				elemT := ctx.AddType(types.NewPointer(f.Type()))
+				fieldArray := ctx.Const(
+					fmt.Sprintf("$<%s.%s:%s>Memory", t, f.Name(), f.Type()),
+					ctx.ArraySort(ctx.addrSort, ctx.ArraySort(ctx.IntSort(), elemT)),
+				).(z3.Array)
+				fields = append(fields, fieldArray)
+			}
+			ctx.fieldsMemory[t.String()] = fields
+			ctx.rawTypes[t.String()] = ctx.addrSort
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", t))
 		}
@@ -104,8 +118,10 @@ func (ctx *EncodingContext) AddVar(v Var) {
 		ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type.String())
 	case *types.Slice:
 		ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type.String())
+	case *types.Struct:
+		ctx.vars[v.Name] = ctx.SymStructConst(v.Name, v.Type.String())
 	default:
-		panic(fmt.Sprintf("unknown type '%s'", v.Type))
+		panic(fmt.Sprintf("variable '%s' of unknown type '%s'", v.Name, v.Type))
 	}
 }
 
@@ -133,6 +149,14 @@ func (ctx *EncodingContext) SymArrayConst(name string, t string) *SymArray {
 
 func (ctx *EncodingContext) PointerConst(name string, t string) *Pointer {
 	return &Pointer{
+		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
+		t:    t,
+		sort: ctx.rawTypes[t],
+	}
+}
+
+func (ctx *EncodingContext) SymStructConst(name string, t string) *SymStruct {
+	return &SymStruct{
 		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
 		t:    t,
 		sort: ctx.rawTypes[t],
