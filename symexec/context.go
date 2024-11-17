@@ -38,6 +38,11 @@ type EncodingContext struct {
 	addrSort z3.Sort
 }
 
+type NamedStruct struct {
+	*types.Struct
+	Name string
+}
+
 func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 	if _, ok := ctx.rawTypes[t.String()]; !ok {
 		switch t := t.(type) {
@@ -84,12 +89,21 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 			}
 			ctx.fieldsMemory[t.String()] = fields
 			ctx.rawTypes[t.String()] = ctx.addrSort
+		case NamedStruct:
+			var fields []z3.Array
+			for i := 0; i < t.NumFields(); i++ {
+				f := t.Field(i)
+				elemT := ctx.AddType(types.NewPointer(f.Type()))
+				fieldArray := ctx.Const(
+					fmt.Sprintf("$<%s.%s:%s>Memory", t.Name, f.Name(), f.Type()),
+					ctx.ArraySort(ctx.addrSort, elemT),
+				).(z3.Array)
+				fields = append(fields, fieldArray)
+			}
+			ctx.fieldsMemory[t.Name] = fields
+			ctx.rawTypes[t.Name] = ctx.addrSort
 		case *types.Named:
-			ctx.AddType(t.Underlying())
-			ctx.fieldsMemory[t.String()] = ctx.fieldsMemory[t.Underlying().String()]
-			ctx.rawTypes[t.String()] = ctx.rawTypes[t.Underlying().String()]
-			delete(ctx.fieldsMemory, t.Underlying().String())
-			delete(ctx.rawTypes, t.Underlying().String())
+			ctx.AddType(NamedStruct{Struct: t.Underlying().(*types.Struct), Name: t.String()})
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", t))
 		}
