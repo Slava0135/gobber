@@ -36,22 +36,22 @@ func Static() {
 
 func AnalyzeFile(tc string) map[string]bool {
 	fmt.Printf(":: building SSA graph for file '%s'\n", tc)
-	
+
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, tc, nil, 0)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	files := []*ast.File{f}
-	
+
 	pkg := types.NewPackage("main", "")
-	
+
 	main, _, err := ssautil.BuildPackage(&types.Config{Importer: importer.Default()}, fset, pkg, files, 0)
 	if err != nil {
 		panic(err)
 	}
-	
+
 	res := make(map[string]bool, 0)
 	for _, v := range main.Members {
 		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
@@ -265,6 +265,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		funcs:    make(map[string]z3.FuncDecl, 0),
 		rawTypes: make(map[string]z3.Sort, 0),
 
+		fieldsMemory:      make(map[string][]z3.Array),
 		valuesMemory:      make(map[string]z3.Array),
 		arrayValuesMemory: make(map[string]z3.Array),
 		arrayLenMemory:    make(map[string]z3.Array),

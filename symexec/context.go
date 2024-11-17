@@ -50,9 +50,9 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 			case types.Float64:
 				ctx.rawTypes[t.String()] = ctx.floatSort
 			case types.Complex128:
-				// TODO: complex number representation as z3.Sort
+				ctx.rawTypes[t.String()] = ctx.addrSort // TODO: complex number representation as z3.Sort
 			case types.String:
-				// TODO: string representation as z3.Sort
+				ctx.rawTypes[t.String()] = ctx.addrSort // TODO: string representation as z3.Sort
 			default:
 				panic(fmt.Sprintf("unknown basic type '%s'", t))
 			}
@@ -78,12 +78,18 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 				elemT := ctx.AddType(types.NewPointer(f.Type()))
 				fieldArray := ctx.Const(
 					fmt.Sprintf("$<%s.%s:%s>Memory", t, f.Name(), f.Type()),
-					ctx.ArraySort(ctx.addrSort, ctx.ArraySort(ctx.IntSort(), elemT)),
+					ctx.ArraySort(ctx.addrSort, elemT),
 				).(z3.Array)
 				fields = append(fields, fieldArray)
 			}
 			ctx.fieldsMemory[t.String()] = fields
 			ctx.rawTypes[t.String()] = ctx.addrSort
+		case *types.Named:
+			ctx.AddType(t.Underlying())
+			ctx.fieldsMemory[t.String()] = ctx.fieldsMemory[t.Underlying().String()]
+			ctx.rawTypes[t.String()] = ctx.rawTypes[t.Underlying().String()]
+			delete(ctx.fieldsMemory, t.Underlying().String())
+			delete(ctx.rawTypes, t.Underlying().String())
 		default:
 			panic(fmt.Sprintf("unknown type '%s'", t))
 		}

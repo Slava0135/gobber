@@ -306,6 +306,8 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Bool))
 		case z3.Float:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
+		case *Pointer:
+			return result.addr.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Uninterpreted))
 		}
 	}
 	panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.Sort()))
@@ -510,9 +512,11 @@ func (fa FieldAddr) String() string {
 
 func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
 	res := fa.Result.Encode(ctx).(*Pointer).addr
-	symStruct := fa.Struct.Encode(ctx).(*SymStruct)
-	fields := ctx.fieldsMemory[symStruct.t]
-	value := fields[fa.Field].Select(symStruct.addr).(z3.Uninterpreted)
+	symStructPointer := fa.Struct.Encode(ctx).(*Pointer)
+	symStructAddr := ctx.valuesMemory[symStructPointer.t].Select(symStructPointer.addr).(z3.Uninterpreted)
+	structT := fa.Struct.Type.(*types.Pointer).Elem().String()
+	fields := ctx.fieldsMemory[structT]
+	value := fields[fa.Field].Select(symStructAddr).(z3.Uninterpreted)
 	return res.Eq(value)
 }
 
