@@ -404,8 +404,8 @@ func (and And) String() string {
 }
 
 func (and And) Encode(ctx *EncodingContext) SymValue {
-	var res = and.SubFormulas[0].Encode(ctx).(z3.Bool)
-	for i := 1; i < len(and.SubFormulas); i++ {
+	var res = ctx.FromBool(true)
+	for i := 0; i < len(and.SubFormulas); i++ {
 		res = res.And(and.SubFormulas[i].Encode(ctx).(z3.Bool))
 	}
 	return res
