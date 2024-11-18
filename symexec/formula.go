@@ -74,6 +74,26 @@ type FieldAddr struct {
 	Field  int
 }
 
+func removeType(str string) string {
+	return strings.Split(str, ":")[0]
+}
+
+func isConstant(str string) bool {
+	return strings.Contains(str, ":")
+}
+
+func removeArgs(str string) string {
+	return strings.Split(str, "(")[0]
+}
+
+func NewVar(reg Register) Var {
+	return Var{
+		Name:     removeType(reg.Name()),
+		Type:     reg.Type(),
+		Constant: isConstant(reg.Name()),
+	}
+}
+
 func (v Var) String() string {
 	return v.Name + ":" + v.Type.String()
 }
