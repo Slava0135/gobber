@@ -22,22 +22,30 @@ func check(t *testing.T, shouldFail []string, r map[string]bool) {
 	}
 }
 
-func TestArrays(t *testing.T) {
-	check(t, []string{}, AnalyzeFile("arrays.go"))
+func TestStatic_Arrays(t *testing.T) {
+	check(t, []string{}, AnalyzeFileStatic("arrays.go"))
 }
 
-func TestComplex(t *testing.T) {
-	check(t, []string{"complexComparison"}, AnalyzeFile("complex.go"))
+func TestStatic_Complex(t *testing.T) {
+	check(t, []string{"complexComparison"}, AnalyzeFileStatic("complex.go"))
 }
 
-func TestNumbers(t *testing.T) {
-	check(t, []string{}, AnalyzeFile("numbers.go"))
+func TestStatic_Numbers(t *testing.T) {
+	check(t, []string{}, AnalyzeFileStatic("numbers.go"))
 }
 
-func TestPushPop(t *testing.T) {
-	check(t, []string{"pushPopIncrementality"}, AnalyzeFile("push_pop.go"))
+func TestStatic_PushPop(t *testing.T) {
+	check(t, []string{"pushPopIncrementality"}, AnalyzeFileStatic("push_pop.go"))
 }
 
-func TestSoftConstraints(t *testing.T) {
-	check(t, []string{}, AnalyzeFile("softconstraints.go"))
+func TestStatic_SoftConstraints(t *testing.T) {
+	check(t, []string{}, AnalyzeFileStatic("softconstraints.go"))
+}
+
+func TestDynamic_Numbers(t *testing.T) {
+	check(t, []string{}, AnalyzeFileDynamic("numbers.go"))
+}
+
+func TestDynamic_PushPop(t *testing.T) {
+	check(t, []string{}, AnalyzeFileDynamic("push_pop.go"))
 }

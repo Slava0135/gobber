@@ -25,11 +25,11 @@ func Static() {
 	}
 
 	for _, tc := range testcases {
-		AnalyzeFile(tc.Name())
+		AnalyzeFileStatic(tc.Name())
 	}
 }
 
-func AnalyzeFile(filename string) map[string]bool {
+func AnalyzeFileStatic(filename string) map[string]bool {
 	main := buildPackage(filename)
 	res := make(map[string]bool, 0)
 	for _, v := range main.Members {
