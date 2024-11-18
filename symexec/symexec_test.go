@@ -42,10 +42,22 @@ func TestStatic_SoftConstraints(t *testing.T) {
 	check(t, []string{}, AnalyzeFileStatic("softconstraints.go"))
 }
 
+func TestDynamic_Arrays(t *testing.T) {
+	check(t, []string{}, AnalyzeFileDynamic("arrays.go"))
+}
+
+func TestDynamic_Complex(t *testing.T) {
+	check(t, []string{"complexComparison"}, AnalyzeFileDynamic("complex.go"))
+}
+
 func TestDynamic_Numbers(t *testing.T) {
 	check(t, []string{}, AnalyzeFileDynamic("numbers.go"))
 }
 
 func TestDynamic_PushPop(t *testing.T) {
 	check(t, []string{}, AnalyzeFileDynamic("push_pop.go"))
+}
+
+func TestDynamic_SoftConstraints(t *testing.T) {
+	check(t, []string{}, AnalyzeFileDynamic("softconstraints.go"))
 }
