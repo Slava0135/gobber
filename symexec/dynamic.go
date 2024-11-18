@@ -141,7 +141,7 @@ func execute(fn *ssa.Function) {
 			}
 		}
 		formula := And{SubFormulas: subFormulas}
-		if model, ok := solve(formula); ok {
+		if model, sat := solve(formula); sat {
 			switch v := lastInstr.(type) {
 			case *ssa.If:
 				thenState := State{}
@@ -167,7 +167,54 @@ func execute(fn *ssa.Function) {
 	}
 }
 
-func solve(formula Formula) (model z3.Model, ok bool) {
-	fmt.Println(formula)
-	return z3.Model{}, true
+func solve(f Formula) (model *z3.Model, sat bool) {
+	vars := make(map[string]Var, 0)
+	f.ScanVars(vars)
+
+	z3ctx := z3.NewContext(nil)
+	ctx := &EncodingContext{
+		Context: z3ctx,
+
+		vars:     make(map[string]SymValue, 0),
+		funcs:    make(map[string]z3.FuncDecl, 0),
+		rawTypes: make(map[string]z3.Sort, 0),
+
+		fieldsMemory:      make(map[string][]z3.Array),
+		valuesMemory:      make(map[string]z3.Array),
+		arrayValuesMemory: make(map[string]z3.Array),
+		arrayLenMemory:    make(map[string]z3.Array),
+
+		floatSort:   z3ctx.FloatSort(11, 53),
+		complexSort: z3ctx.UninterpretedSort("complex128"),
+		stringSort:  z3ctx.UninterpretedSort("string"),
+
+		addrSort: z3ctx.UninterpretedSort("$addr"),
+	}
+
+	for _, v := range vars {
+		ctx.AddType(v.Type)
+	}
+
+	for _, v := range vars {
+		ctx.AddVar(v)
+	}
+
+	encodedFormula := f.Encode(ctx).(z3.Bool)
+
+	solver := z3.NewSolver(ctx.Context)
+	solver.Assert(encodedFormula)
+	for _, a := range ctx.asserts {
+		solver.Assert(a)
+	}
+
+	sat, err := solver.Check()
+	if err != nil {
+		panic(err)
+	}
+
+	if sat {
+		return solver.Model(), true
+	} else {
+		return nil, false
+	}
 }
