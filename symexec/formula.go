@@ -74,6 +74,11 @@ type FieldAddr struct {
 	Field  int
 }
 
+type Condition struct {
+	Cond   Var
+	IsTrue bool
+}
+
 func removeType(str string) string {
 	return strings.Split(str, ":")[0]
 }
@@ -543,6 +548,27 @@ func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
 func (fa FieldAddr) ScanVars(vars map[string]Var) {
 	fa.Result.ScanVars(vars)
 	fa.Struct.ScanVars(vars)
+}
+
+func (cond Condition) String() string {
+	if cond.IsTrue {
+		return cond.Cond.String()
+	} else {
+		return fmt.Sprintf("!%s", cond.Cond)
+	}
+}
+
+func (cond Condition) Encode(ctx *EncodingContext) SymValue {
+	c := cond.Cond.Encode(ctx).(z3.Bool)
+	if cond.IsTrue {
+		return c
+	} else {
+		return c.Not()
+	}
+}
+
+func (cond Condition) ScanVars(vars map[string]Var) {
+	cond.Cond.ScanVars(vars);
 }
 
 func toYaml(f Formula) string {

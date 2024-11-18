@@ -50,8 +50,8 @@ func execute(fn *ssa.Function) {
 		queue = append(queue[:index], queue[index+1:]...)
 		var subFormulas []Formula
 		var lastInstr ssa.Instruction
-		for _, i := range next.blockOrder {
-			block := fn.Blocks[i]
+		for blockNumber, blockIndex := range next.blockOrder {
+			block := fn.Blocks[blockIndex]
 			for _, v := range block.Instrs {
 				lastInstr = v
 				switch v := v.(type) {
@@ -63,11 +63,26 @@ func execute(fn *ssa.Function) {
 						Right:  NewVar(v.Y),
 					})
 				case *ssa.If:
-					// TODO
+					if blockNumber+1 < len(next.blockOrder) {
+						isTrue := false
+						if v.Block().Succs[0].Index == next.blockOrder[blockNumber+1] {
+							isTrue = true
+						}
+						subFormulas = append(subFormulas, Condition{
+							Cond:   NewVar(v.Cond),
+							IsTrue: isTrue,
+						})
+					}
 				case *ssa.Jump:
-					// TODO
+					// do nothing
 				case *ssa.Return:
-					// TODO
+					var results []Var
+					for _, r := range v.Results {
+						results = append(results, NewVar(r))
+					}
+					subFormulas = append(subFormulas, Return{
+						Results: results,
+					})
 				case *ssa.UnOp:
 					subFormulas = append(subFormulas, UnOp{
 						Result: NewVar(v),
@@ -75,14 +90,23 @@ func execute(fn *ssa.Function) {
 						Op:     v.Op.String(),
 					})
 				case *ssa.Call:
-					// TODO
+					// TODO make interprocedural
+					var args []Var
+					for _, a := range v.Call.Args {
+						args = append(args, NewVar(a))
+					}
+					subFormulas = append(subFormulas, Call{
+						Result: NewVar(v),
+						Name:   removeArgs(v.Call.String()),
+						Args:   args,
+					})
 				case *ssa.Convert:
 					subFormulas = append(subFormulas, Convert{
 						Result: NewVar(v),
 						Arg:    NewVar(v.X),
 					})
 				case *ssa.Phi:
-					// TODO
+					panic("TODO")
 				case *ssa.IndexAddr:
 					subFormulas = append(subFormulas, IndexAddr{
 						Result: NewVar(v),
@@ -104,7 +128,19 @@ func execute(fn *ssa.Function) {
 		if model, ok := solve(formula); ok {
 			switch v := lastInstr.(type) {
 			case *ssa.If:
+				thenState := State{}
+				thenState.blockOrder = append(thenState.blockOrder, next.blockOrder...)
+				thenState.blockOrder = append(thenState.blockOrder, v.Block().Succs[0].Index)
+				queue = append(queue, thenState)
+				elseState := State{}
+				elseState.blockOrder = append(elseState.blockOrder, next.blockOrder...)
+				elseState.blockOrder = append(elseState.blockOrder, v.Block().Succs[1].Index)
+				queue = append(queue, elseState)
 			case *ssa.Jump:
+				newState := State{}
+				newState.blockOrder = append(newState.blockOrder, next.blockOrder...)
+				newState.blockOrder = append(newState.blockOrder, v.Block().Succs[0].Index)
+				queue = append(queue, newState)
 			case *ssa.Return:
 				fmt.Println("found solution for path:", next.blockOrder)
 				fmt.Println(model)
@@ -116,5 +152,6 @@ func execute(fn *ssa.Function) {
 }
 
 func solve(formula Formula) (model z3.Model, ok bool) {
+	fmt.Println(formula)
 	return z3.Model{}, true
 }
