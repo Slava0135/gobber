@@ -13,6 +13,11 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+type Register interface {
+	Type() types.Type
+	Name() string
+}
+
 func buildPackage(filename string) *ssa.Package {
 	fmt.Printf(":: building SSA graph for file '%s'\n", filename)
 

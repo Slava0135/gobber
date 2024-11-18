@@ -2,7 +2,6 @@ package symexec
 
 import (
 	"fmt"
-	"go/types"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -10,11 +9,6 @@ import (
 	"github.com/aclements/go-z3/z3"
 	"golang.org/x/tools/go/ssa"
 )
-
-type Register interface {
-	Type() types.Type
-	Name() string
-}
 
 func Static() {
 	os.Chdir("testdata")
