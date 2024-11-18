@@ -106,7 +106,23 @@ func execute(fn *ssa.Function) {
 						Arg:    NewVar(v.X),
 					})
 				case *ssa.Phi:
-					panic("TODO")
+					preds := v.Block().Preds
+					var blocksIdxs []int
+					for _, b := range preds {
+						blocksIdxs = append(blocksIdxs, b.Index)
+					}
+					mostRecent := 0
+					for _, i := range next.blockOrder {
+						for k, j := range blocksIdxs {
+							if j == i {
+								mostRecent = k
+							}
+						}
+					}
+					subFormulas = append(subFormulas, Convert{
+						Result: NewVar(v),
+						Arg:    NewVar(v.Edges[mostRecent]),
+					})
 				case *ssa.IndexAddr:
 					subFormulas = append(subFormulas, IndexAddr{
 						Result: NewVar(v),
