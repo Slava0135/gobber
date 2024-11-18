@@ -3,11 +3,25 @@ package symexec
 import (
 	"fmt"
 	"math/rand"
+	"os"
 	"runtime/debug"
 
 	"github.com/aclements/go-z3/z3"
 	"golang.org/x/tools/go/ssa"
 )
+
+func Dynamic() {
+	os.Chdir("testdata")
+
+	testcases, err := os.ReadDir("./")
+	if err != nil {
+		panic(err)
+	}
+
+	for _, tc := range testcases {
+		AnalyzeFileDynamic(tc.Name())
+	}
+}
 
 func AnalyzeFileDynamic(filename string) map[string]bool {
 	main := buildPackage(filename)
