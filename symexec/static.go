@@ -183,7 +183,7 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	}
 
 	for _, v := range vars {
-		ctx.AddVar(v)
+		ctx.AddVar(v.Name, v.Name, v.Type)
 	}
 
 	fmt.Println("::", "encoding formula in Z3")

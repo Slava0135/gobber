@@ -142,8 +142,11 @@ func (v Var) Encode(ctx *EncodingContext) SymValue {
 		}
 		panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 	}
-	if v, ok := ctx.vars[v.Name]; ok {
-		return v
+	if sv, ok := ctx.vars[v.Name]; ok {
+		if ctx.varsUsed != nil {
+			ctx.varsUsed[v.Name] = struct{}{}
+		}
+		return sv
 	}
 	panic(fmt.Sprintf("unknown var '%s'", v.Name))
 }
@@ -161,11 +164,24 @@ func (v Var) ScanVars(vars map[string]Var) {
 	vars[v.Name] = v
 }
 
+func (v Var) makeFresh(ctx *EncodingContext) {
+	if ctx.varsUsed != nil {
+		if _, ok := ctx.varsUsed[v.Name]; ok {
+			if _, ok := ctx.varCount[v.Name]; !ok {
+				ctx.varCount[v.Name] = 0
+			}
+			ctx.varCount[v.Name] += 1
+			ctx.AddVar(v.Name, fmt.Sprintf("%s~%d", v.Name, ctx.varCount[v.Name]), v.Type)
+		}
+	}
+}
+
 func (bo BinOp) String() string {
 	return fmt.Sprintf("%s == (%s %s %s)", bo.Result, bo.Left, bo.Op, bo.Right)
 }
 
 func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
+	bo.Result.makeFresh(ctx)
 	res := bo.Result.Encode(ctx)
 	left := bo.Left.Encode(ctx)
 	right := bo.Right.Encode(ctx)
@@ -319,6 +335,7 @@ func (uo UnOp) String() string {
 }
 
 func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
+	uo.Result.makeFresh(ctx)
 	result := uo.Result.Encode(ctx)
 	arg := uo.Arg.Encode(ctx)
 	switch uo.Op {
@@ -443,6 +460,7 @@ func (f Call) String() string {
 }
 
 func (f Call) Encode(ctx *EncodingContext) SymValue {
+	f.Result.makeFresh(ctx)
 	// built-in
 	switch f.Name {
 	case "real":
@@ -481,6 +499,7 @@ func (c Convert) String() string {
 }
 
 func (c Convert) Encode(ctx *EncodingContext) SymValue {
+	c.Result.makeFresh(ctx)
 	switch resT := c.Result.Type.(type) {
 	case *types.Basic:
 		switch resT.Kind() {
@@ -517,6 +536,7 @@ func (ia IndexAddr) String() string {
 }
 
 func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
+	ia.Result.makeFresh(ctx)
 	res := ia.Result.Encode(ctx).(*Pointer).addr
 	array := ia.Array.Encode(ctx).(*SymArray)
 	index := ia.Index.Encode(ctx).(z3.Int)
@@ -536,6 +556,7 @@ func (fa FieldAddr) String() string {
 }
 
 func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
+	fa.Result.makeFresh(ctx)
 	res := fa.Result.Encode(ctx).(*Pointer).addr
 	symStructPointer := fa.Struct.Encode(ctx).(*Pointer)
 	symStructAddr := ctx.valuesMemory[symStructPointer.t].Select(symStructPointer.addr).(z3.Uninterpreted)
@@ -568,7 +589,7 @@ func (cond Condition) Encode(ctx *EncodingContext) SymValue {
 }
 
 func (cond Condition) ScanVars(vars map[string]Var) {
-	cond.Cond.ScanVars(vars);
+	cond.Cond.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {

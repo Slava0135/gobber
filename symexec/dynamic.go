@@ -126,7 +126,7 @@ func execute(fn *ssa.Function) {
 						blocksIdxs = append(blocksIdxs, b.Index)
 					}
 					mostRecent := 0
-					for _, i := range next.blockOrder {
+					for _, i := range next.blockOrder[:blockNumber] {
 						for k, j := range blocksIdxs {
 							if j == i {
 								mostRecent = k
@@ -158,14 +158,18 @@ func execute(fn *ssa.Function) {
 		if model, sat := solve(formula); sat {
 			switch v := lastInstr.(type) {
 			case *ssa.If:
-				thenState := State{}
-				thenState.blockOrder = append(thenState.blockOrder, next.blockOrder...)
-				thenState.blockOrder = append(thenState.blockOrder, v.Block().Succs[0].Index)
-				queue = append(queue, thenState)
-				elseState := State{}
-				elseState.blockOrder = append(elseState.blockOrder, next.blockOrder...)
-				elseState.blockOrder = append(elseState.blockOrder, v.Block().Succs[1].Index)
-				queue = append(queue, elseState)
+				{
+					thenState := State{}
+					thenState.blockOrder = append(thenState.blockOrder, next.blockOrder...)
+					thenState.blockOrder = append(thenState.blockOrder, v.Block().Succs[0].Index)
+					queue = append(queue, thenState)
+				}
+				{
+					elseState := State{}
+					elseState.blockOrder = append(elseState.blockOrder, next.blockOrder...)
+					elseState.blockOrder = append(elseState.blockOrder, v.Block().Succs[1].Index)
+					queue = append(queue, elseState)
+				}
 			case *ssa.Jump:
 				newState := State{}
 				newState.blockOrder = append(newState.blockOrder, next.blockOrder...)
@@ -193,6 +197,9 @@ func solve(f Formula) (model *z3.Model, sat bool) {
 		funcs:    make(map[string]z3.FuncDecl, 0),
 		rawTypes: make(map[string]z3.Sort, 0),
 
+		varsUsed: make(map[string]struct{}),
+		varCount: make(map[string]int),
+
 		fieldsMemory:      make(map[string][]z3.Array),
 		valuesMemory:      make(map[string]z3.Array),
 		arrayValuesMemory: make(map[string]z3.Array),
@@ -210,7 +217,7 @@ func solve(f Formula) (model *z3.Model, sat bool) {
 	}
 
 	for _, v := range vars {
-		ctx.AddVar(v)
+		ctx.AddVar(v.Name, v.Name, v.Type)
 	}
 
 	encodedFormula := f.Encode(ctx).(z3.Bool)

@@ -26,6 +26,9 @@ type EncodingContext struct {
 	funcs    map[string]z3.FuncDecl
 	rawTypes map[string]z3.Sort
 
+	varsUsed map[string]struct{}
+	varCount map[string]int
+
 	fieldsMemory      map[string][]z3.Array
 	valuesMemory      map[string]z3.Array
 	arrayValuesMemory map[string]z3.Array
@@ -111,37 +114,37 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 	return ctx.rawTypes[t.String()]
 }
 
-func (ctx *EncodingContext) AddVar(v Var) {
-	switch t := v.Type.(type) {
+func (ctx *EncodingContext) AddVar(name string, z3name string, t types.Type) {
+	switch t := t.(type) {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.Int:
-			i := ctx.IntConst(v.Name)
-			ctx.vars[v.Name] = i
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
 			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt, ctx.IntSort()).(z3.Int)))
 			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt, ctx.IntSort()).(z3.Int)))
 		case types.Uint:
-			i := ctx.IntConst(v.Name)
-			ctx.vars[v.Name] = i
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
 			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromBigInt(new(big.Int).SetUint64(math.MaxUint), ctx.IntSort()).(z3.Int)))
 			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
 		case types.Bool:
-			ctx.vars[v.Name] = ctx.BoolConst(v.Name)
+			ctx.vars[name] = ctx.BoolConst(z3name)
 		case types.Float64:
-			ctx.vars[v.Name] = ctx.Const(v.Name, ctx.floatSort)
+			ctx.vars[name] = ctx.Const(z3name, ctx.floatSort)
 		case types.Complex128:
-			ctx.vars[v.Name] = ctx.ComplexConst(v.Name)
+			ctx.vars[name] = ctx.ComplexConst(z3name)
 		case types.String:
-			ctx.vars[v.Name] = ctx.StringConst(v.Name)
+			ctx.vars[name] = ctx.StringConst(z3name)
 		}
 	case *types.Pointer:
-		ctx.vars[v.Name] = ctx.PointerConst(v.Name, v.Type.String())
+		ctx.vars[name] = ctx.PointerConst(z3name, t.String())
 	case *types.Slice:
-		ctx.vars[v.Name] = ctx.SymArrayConst(v.Name, v.Type.String())
+		ctx.vars[name] = ctx.SymArrayConst(z3name, t.String())
 	case *types.Struct:
-		ctx.vars[v.Name] = ctx.SymStructConst(v.Name, v.Type.String())
+		ctx.vars[name] = ctx.SymStructConst(z3name, t.String())
 	default:
-		panic(fmt.Sprintf("variable '%s' of unknown type '%s'", v.Name, v.Type))
+		panic(fmt.Sprintf("variable '%s' of unknown type '%s'", name, t))
 	}
 }
 
