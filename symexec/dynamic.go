@@ -2,7 +2,6 @@ package symexec
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"runtime/debug"
 
@@ -46,7 +45,7 @@ func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) (ok bool) {
 	fmt.Println("::", "printing SSA blocks")
 	printBlocks(fn)
 	fmt.Println("::", "execute")
-	execute(fn, pkg)
+	execute(fn, pkg, &RandomQueue{})
 	return true
 }
 
@@ -59,15 +58,11 @@ type Frame struct {
 	blockOrder []int
 }
 
-func execute(fn *ssa.Function, pkg *ssa.Package) {
+func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) {
 	startFrame := &Frame{function: fn, blockOrder: []int{0}}
-	queue := []State{
-		{[]*Frame{startFrame}},
-	}
-	for len(queue) > 0 {
-		index := rand.Intn(len(queue))
-		next := queue[index]
-		queue = append(queue[:index], queue[index+1:]...)
+	queue.push(State{frames: []*Frame{startFrame}})
+	for !queue.empty() {
+		next := queue.pop()
 		var subFormulas []Formula
 		var lastInstr ssa.Instruction
 		for _, frame := range next.frames {
@@ -170,19 +165,19 @@ func execute(fn *ssa.Function, pkg *ssa.Package) {
 					thenState := next.copy()
 					lastFrame := thenState.frames[len(thenState.frames)-1]
 					lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[0].Index)
-					queue = append(queue, thenState)
+					queue.push(thenState)
 				}
 				{
 					elseState := next.copy()
 					lastFrame := elseState.frames[len(elseState.frames)-1]
 					lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[1].Index)
-					queue = append(queue, elseState)
+					queue.push(elseState)
 				}
 			case *ssa.Jump:
 				jumpState := next.copy()
 				lastFrame := jumpState.frames[len(jumpState.frames)-1]
 				lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[0].Index)
-				queue = append(queue, jumpState)
+				queue.push(jumpState)
 			case *ssa.Return:
 				fmt.Println("found solution for path:", next.frames[0].blockOrder)
 				fmt.Println(model)
