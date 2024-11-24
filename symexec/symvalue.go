@@ -19,6 +19,7 @@ type String struct {
 type Pointer struct {
 	addr z3.Uninterpreted
 	t    string
+	elem string
 	sort z3.Sort
 }
 

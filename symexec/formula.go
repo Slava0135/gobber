@@ -558,11 +558,10 @@ func (fa FieldAddr) String() string {
 func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
 	fa.Result.makeFresh(ctx)
 	res := fa.Result.Encode(ctx).(*Pointer).addr
-	symStructPointer := fa.Struct.Encode(ctx).(*Pointer)
-	symStructAddr := ctx.valuesMemory[symStructPointer.t].Select(symStructPointer.addr).(z3.Uninterpreted)
-	structT := fa.Struct.Type.(*types.Pointer).Elem().String()
-	fields := ctx.fieldsMemory[structT]
-	value := fields[fa.Field].Select(symStructAddr).(z3.Uninterpreted)
+	str := fa.Struct.Encode(ctx).(*Pointer)
+	addr := ctx.valuesMemory[str.t].Select(str.addr).(z3.Uninterpreted)
+	fields := ctx.fieldsMemory[str.elem]
+	value := fields[fa.Field].Select(addr).(z3.Uninterpreted)
 	return res.Eq(value)
 }
 

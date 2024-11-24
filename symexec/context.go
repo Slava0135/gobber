@@ -138,7 +138,7 @@ func (ctx *EncodingContext) AddVar(name string, z3name string, t types.Type) {
 			ctx.vars[name] = ctx.StringConst(z3name)
 		}
 	case *types.Pointer:
-		ctx.vars[name] = ctx.PointerConst(z3name, t.String())
+		ctx.vars[name] = ctx.PointerConst(z3name, t.String(), t.Elem().String())
 	case *types.Slice:
 		ctx.vars[name] = ctx.SymArrayConst(z3name, t.String())
 	case *types.Struct:
@@ -170,10 +170,11 @@ func (ctx *EncodingContext) SymArrayConst(name string, t string) *SymArray {
 	}
 }
 
-func (ctx *EncodingContext) PointerConst(name string, t string) *Pointer {
+func (ctx *EncodingContext) PointerConst(name string, t string, elem string) *Pointer {
 	return &Pointer{
 		addr: ctx.Const(name, ctx.addrSort).(z3.Uninterpreted),
 		t:    t,
+		elem: elem,
 		sort: ctx.rawTypes[t],
 	}
 }
