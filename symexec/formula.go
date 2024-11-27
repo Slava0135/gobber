@@ -2,61 +2,14 @@ package symexec
 
 import (
 	"fmt"
+	"go/types"
+	"math/big"
 	"strconv"
 	"strings"
 
 	"github.com/aclements/go-z3/z3"
 	"gopkg.in/yaml.v3"
 )
-
-const (
-	unsignedIntType = "uint"
-	intType         = "int"
-	boolType        = "bool"
-	floatType       = "float64"
-	complexType     = "complex128"
-	stringType      = "string"
-
-	intSize     = 64
-	floatSize   = 64
-	complexSize = 64
-
-	resultSpecialVar = "$result"
-
-	realFuncName = "real"
-	imagFuncName = "imag"
-)
-
-type EncodingContext struct {
-	*z3.Context
-	vars        map[string]SymValue
-	funcs       map[string]z3.FuncDecl
-	floatSort   z3.Sort
-	complexSort z3.Sort
-	stringSort  z3.Sort
-}
-
-func (ctx *EncodingContext) ComplexConst(name string) *Complex {
-	return &Complex{
-		real: ctx.Const(name+".REAL", ctx.floatSort).(z3.Float),
-		imag: ctx.Const(name+".IMAG", ctx.floatSort).(z3.Float),
-		sort: ctx.complexSort,
-	}
-}
-
-func (ctx *EncodingContext) StringConst(name string) *String {
-	return &String{
-		sort: ctx.stringSort,
-	}
-}
-
-func (ctx *EncodingContext) FromComplex128(c complex128) *Complex {
-	return &Complex{
-		real: ctx.FromFloat64(real(c), ctx.floatSort),
-		imag: ctx.FromFloat64(imag(c), ctx.floatSort),
-		sort: ctx.complexSort,
-	}
-}
 
 type Formula interface {
 	fmt.Stringer
@@ -67,7 +20,7 @@ type Formula interface {
 
 type Var struct {
 	Name     string
-	Type     string
+	Type     types.Type
 	Constant bool
 }
 
@@ -109,43 +62,91 @@ type Convert struct {
 	Arg    Var
 }
 
+type IndexAddr struct {
+	Result Var
+	Array  Var
+	Index  Var
+}
+
+type FieldAddr struct {
+	Result Var
+	Struct Var
+	Field  int
+}
+
+type Condition struct {
+	Cond   Var
+	IsTrue bool
+}
+
+func removeType(str string) string {
+	return strings.Split(str, ":")[0]
+}
+
+func isConstant(str string) bool {
+	return strings.Contains(str, ":")
+}
+
+func removeArgs(str string) string {
+	return strings.Split(str, "(")[0]
+}
+
+func NewVar(reg Register) Var {
+	return Var{
+		Name:     removeType(reg.Name()),
+		Type:     reg.Type(),
+		Constant: isConstant(reg.Name()),
+	}
+}
+
 func (v Var) String() string {
-	return v.Name + ":" + v.Type
+	return v.Name + ":" + v.Type.String()
 }
 
 func (v Var) Encode(ctx *EncodingContext) SymValue {
 	if v.Constant {
-		switch v.Type {
-		case intType, unsignedIntType:
-			i, err := strconv.ParseInt(v.Name, 10, intSize)
-			if err != nil {
-				panic(err)
+		switch t := v.Type.(type) {
+		case *types.Basic:
+			switch t.Kind() {
+			case types.Uint:
+				i, err := strconv.ParseUint(v.Name, 10, intSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromBigInt(new(big.Int).SetUint64(i), ctx.IntSort())
+			case types.Int:
+				i, err := strconv.ParseInt(v.Name, 10, intSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromInt(i, ctx.IntSort())
+			case types.Bool:
+				b, err := strconv.ParseBool(v.Name)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromBool(b)
+			case types.Float64:
+				f, err := strconv.ParseFloat(v.Name, floatSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromFloat64(f, ctx.floatSort)
+			case types.Complex128:
+				c, err := strconv.ParseComplex(v.Name, complexSize)
+				if err != nil {
+					panic(err)
+				}
+				return ctx.FromComplex128(c)
 			}
-			return ctx.FromInt(i, ctx.IntSort())
-		case boolType:
-			b, err := strconv.ParseBool(v.Name)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromBool(b)
-		case floatType:
-			f, err := strconv.ParseFloat(v.Name, floatSize)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromFloat64(f, ctx.floatSort)
-		case complexType:
-			c, err := strconv.ParseComplex(v.Name, complexSize)
-			if err != nil {
-				panic(err)
-			}
-			return ctx.FromComplex128(c)
-		default:
-			panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 		}
+		panic(fmt.Sprintf("unknown constant '%s' of type '%s'", v.Name, v.Type))
 	}
-	if v, ok := ctx.vars[v.Name]; ok {
-		return v
+	if sv, ok := ctx.vars[v.Name]; ok {
+		if ctx.varsUsed != nil {
+			ctx.varsUsed[v.Name] = struct{}{}
+		}
+		return sv
 	}
 	panic(fmt.Sprintf("unknown var '%s'", v.Name))
 }
@@ -156,11 +157,23 @@ func (v Var) ScanVars(vars map[string]Var) {
 	}
 	if oldV, ok := vars[v.Name]; ok {
 		if oldV.Type != v.Type {
-			panic(fmt.Sprintf("variable '%s' can't different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))
+			panic(fmt.Sprintf("variable '%s' can't have different types ('%s' and '%s')", v.Name, oldV.Type, v.Type))
 		}
 		return
 	}
 	vars[v.Name] = v
+}
+
+func (v Var) makeFresh(ctx *EncodingContext) {
+	if ctx.varsUsed != nil {
+		if _, ok := ctx.varsUsed[v.Name]; ok {
+			if _, ok := ctx.varCount[v.Name]; !ok {
+				ctx.varCount[v.Name] = 0
+			}
+			ctx.varCount[v.Name] += 1
+			ctx.AddVar(v.Name, fmt.Sprintf("%s~%d", v.Name, ctx.varCount[v.Name]), v.Type)
+		}
+	}
 }
 
 func (bo BinOp) String() string {
@@ -168,9 +181,7 @@ func (bo BinOp) String() string {
 }
 
 func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
-	unknownOp := func(op string, sort z3.Sort) {
-		panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", op, sort))
-	}
+	bo.Result.makeFresh(ctx)
 	res := bo.Result.Encode(ctx)
 	left := bo.Left.Encode(ctx)
 	right := bo.Right.Encode(ctx)
@@ -186,8 +197,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			rightCx := right.(*Complex)
 			return resCx.real.Eq(left.real.Add(rightCx.real)).And(
 				resCx.imag.Eq(left.imag.Add(rightCx.imag)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "-":
 		switch left := left.(type) {
@@ -200,8 +209,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			rightCx := right.(*Complex)
 			return resCx.real.Eq(left.real.Sub(rightCx.real)).And(
 				resCx.imag.Eq(left.imag.Sub(rightCx.imag)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "*":
 		switch left := left.(type) {
@@ -219,8 +226,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			d := rightCx.imag
 			return resCx.real.Eq(a.Mul(c).Sub(b.Mul(d))).And(
 				resCx.imag.Eq(a.Mul(d).Add(b.Mul(c))))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "/":
 		switch left := left.(type) {
@@ -239,15 +244,11 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			denom := c.Mul(c).Add(d.Mul(d))
 			return resCx.real.Eq(a.Mul(c).Add(b.Mul(d)).Div(denom)).And(
 				resCx.imag.Eq(b.Mul(c).Sub(a.Mul(d)).Div(denom)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "%":
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Int).Eq(left.Mod(right.(z3.Int)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">":
 		switch left := left.(type) {
@@ -255,8 +256,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.GT(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">=":
 		switch left := left.(type) {
@@ -264,8 +263,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.GE(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.GE(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<":
 		switch left := left.(type) {
@@ -273,8 +270,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.LT(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<=":
 		switch left := left.(type) {
@@ -282,8 +277,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.LE(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.LE(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "==":
 		switch left := left.(type) {
@@ -291,8 +284,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.IEEEEq(right.(z3.Float)))
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "<<":
 		switch left := left.(type) {
@@ -300,8 +291,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Lsh(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case ">>":
 		switch left := left.(type) {
@@ -309,8 +298,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.SRsh(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "^":
 		switch left := left.(type) {
@@ -318,8 +305,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Xor(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "&":
 		switch left := left.(type) {
@@ -327,8 +312,6 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.And(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
 	case "|":
 		switch left := left.(type) {
@@ -336,13 +319,9 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 			leftBV := left.ToBV(intSize)
 			rightBV := right.(z3.Int).ToBV(intSize)
 			return res.(z3.Int).Eq(leftBV.Or(rightBV).SToInt())
-		default:
-			unknownOp(bo.Op, left.Sort())
 		}
-	default:
-		panic(fmt.Sprintf("unknown binary operation '%s'", bo.Op))
 	}
-	panic("unreachable")
+	panic(fmt.Sprintf("unknown binary operation '%s' for sort '%s'", bo.Op, left.Sort()))
 }
 
 func (bo BinOp) ScanVars(vars map[string]Var) {
@@ -356,12 +335,24 @@ func (uo UnOp) String() string {
 }
 
 func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
-	_ = uo.Result.Encode(ctx)
-	_ = uo.Arg.Encode(ctx)
+	uo.Result.makeFresh(ctx)
+	result := uo.Result.Encode(ctx)
+	arg := uo.Arg.Encode(ctx)
 	switch uo.Op {
-	default:
-		panic(fmt.Sprintf("unknown unary operation '%s'", uo.Op))
+	case "*":
+		arg := arg.(*Pointer)
+		switch result := result.(type) {
+		case z3.Int:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Int))
+		case z3.Bool:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Bool))
+		case z3.Float:
+			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
+		case *Pointer:
+			return result.addr.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Uninterpreted))
+		}
 	}
+	panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.Sort()))
 }
 
 func (uo UnOp) ScanVars(vars map[string]Var) {
@@ -394,9 +385,8 @@ func (ret Return) Encode(ctx *EncodingContext) SymValue {
 			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
 		case *String:
 			return result
-		default:
-			panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 		}
+		panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 	}
 	panic("result var not found")
 }
@@ -431,8 +421,8 @@ func (and And) String() string {
 }
 
 func (and And) Encode(ctx *EncodingContext) SymValue {
-	var res = and.SubFormulas[0].Encode(ctx).(z3.Bool)
-	for i := 1; i < len(and.SubFormulas); i++ {
+	var res = ctx.FromBool(true)
+	for i := 0; i < len(and.SubFormulas); i++ {
 		res = res.And(and.SubFormulas[i].Encode(ctx).(z3.Bool))
 	}
 	return res
@@ -470,12 +460,16 @@ func (f Call) String() string {
 }
 
 func (f Call) Encode(ctx *EncodingContext) SymValue {
+	f.Result.makeFresh(ctx)
 	// built-in
 	switch f.Name {
-	case realFuncName:
+	case "real":
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
-	case imagFuncName:
+	case "imag":
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
+	case "len":
+		arr := f.Args[0].Encode(ctx).(*SymArray)
+		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
 	}
 	if function, ok := ctx.funcs[f.Name]; ok {
 		var args []z3.Value
@@ -485,7 +479,7 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 		var res = f.Result.Encode(ctx)
 		switch res := res.(type) {
 		case z3.Int:
-			res.Eq(function.Apply(args...).(z3.Int))
+			return res.Eq(function.Apply(args...).(z3.Int))
 		default:
 			panic(fmt.Sprintf("unknown sort '%s'", res.Sort()))
 		}
@@ -505,49 +499,96 @@ func (c Convert) String() string {
 }
 
 func (c Convert) Encode(ctx *EncodingContext) SymValue {
-	unsupportedConv := func() {
-		panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
+	c.Result.makeFresh(ctx)
+	switch resT := c.Result.Type.(type) {
+	case *types.Basic:
+		switch resT.Kind() {
+		case types.Int, types.Uint:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Int, types.Uint:
+					return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+				}
+			}
+		case types.Float64:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Float64:
+					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
+				case types.Int, types.Uint:
+					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
+				}
+			}
+		}
 	}
-	switch c.Result.Type {
-	case intType, unsignedIntType:
-		switch c.Arg.Type {
-		case intType, unsignedIntType:
-			return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
-		default:
-			unsupportedConv()
-		}
-	case boolType:
-		switch c.Arg.Type {
-		case boolType:
-			return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
-		default:
-			unsupportedConv()
-		}
-	case floatType:
-		switch c.Arg.Type {
-		case floatType:
-			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
-		case intType, unsignedIntType:
-			return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
-		default:
-			unsupportedConv()
-		}
-	case complexType:
-		switch c.Arg.Type {
-		case complexType:
-			res := c.Result.Encode(ctx).(*Complex)
-			arg := c.Arg.Encode(ctx).(*Complex)
-			return res.real.Eq(arg.real).And(res.imag.Eq(arg.imag))
-		}
-	default:
-		unsupportedConv()
-	}
-	panic("unreachable")
+	panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
 }
 
 func (c Convert) ScanVars(vars map[string]Var) {
 	c.Arg.ScanVars(vars)
 	c.Result.ScanVars(vars)
+}
+
+func (ia IndexAddr) String() string {
+	return fmt.Sprintf("%s = &%s[%s]", ia.Result, ia.Array, ia.Index)
+}
+
+func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
+	ia.Result.makeFresh(ctx)
+	res := ia.Result.Encode(ctx).(*Pointer).addr
+	array := ia.Array.Encode(ctx).(*SymArray)
+	index := ia.Index.Encode(ctx).(z3.Int)
+	values := ctx.arrayValuesMemory[array.t].Select(array.addr).(z3.Array)
+	value := values.Select(index).(z3.Uninterpreted)
+	return res.Eq(value)
+}
+
+func (ia IndexAddr) ScanVars(vars map[string]Var) {
+	ia.Result.ScanVars(vars)
+	ia.Array.ScanVars(vars)
+	ia.Index.ScanVars(vars)
+}
+
+func (fa FieldAddr) String() string {
+	return fmt.Sprintf("%s = &%s#%d", fa.Result, fa.Struct, fa.Field)
+}
+
+func (fa FieldAddr) Encode(ctx *EncodingContext) SymValue {
+	fa.Result.makeFresh(ctx)
+	res := fa.Result.Encode(ctx).(*Pointer).addr
+	str := fa.Struct.Encode(ctx).(*Pointer)
+	addr := ctx.valuesMemory[str.t].Select(str.addr).(z3.Uninterpreted)
+	fields := ctx.fieldsMemory[str.elem]
+	value := fields[fa.Field].Select(addr).(z3.Uninterpreted)
+	return res.Eq(value)
+}
+
+func (fa FieldAddr) ScanVars(vars map[string]Var) {
+	fa.Result.ScanVars(vars)
+	fa.Struct.ScanVars(vars)
+}
+
+func (cond Condition) String() string {
+	if cond.IsTrue {
+		return cond.Cond.String()
+	} else {
+		return fmt.Sprintf("!%s", cond.Cond)
+	}
+}
+
+func (cond Condition) Encode(ctx *EncodingContext) SymValue {
+	c := cond.Cond.Encode(ctx).(z3.Bool)
+	if cond.IsTrue {
+		return c
+	} else {
+		return c.Not()
+	}
+}
+
+func (cond Condition) ScanVars(vars map[string]Var) {
+	cond.Cond.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {

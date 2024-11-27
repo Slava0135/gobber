@@ -18,6 +18,7 @@ func main() {
 	runSubtypes := flag.Bool("subtypes", false, "subtyping encoding")
 
 	runStatic := flag.Bool("static", false, "static symbolic execution")
+	runDynamic := flag.Bool("dynamic", false, "dynamic symbolic execution")
 
 	flag.Parse()
 
@@ -61,5 +62,9 @@ func main() {
 
 	if *runStatic {
 		symexec.Static()
+	}
+
+	if *runDynamic {
+		symexec.Dynamic()
 	}
 }
