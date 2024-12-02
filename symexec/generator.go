@@ -81,10 +81,7 @@ func parseArgs(fn *ssa.Function, vars map[string]string) ([]string, error) {
 	var args []string
 	for _, param := range fn.Params {
 		name := param.Name()
-		value, ok := vars[name]
-		if !ok {
-			return nil, fmt.Errorf("param named '%s' not found in model", name)
-		}
+		value := vars[name]
 		goValue, err := parseValue(value, param.Type())
 		if err != nil {
 			return nil, fmt.Errorf("")
@@ -117,17 +114,25 @@ func parseValue(value string, t types.Type) (string, error) {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.Int:
-			i, err := strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
+			if value == "" {
+				return "0", nil
+			} else {
+				i, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
+				}
+				return fmt.Sprint(i), nil
 			}
-			return fmt.Sprint(i), nil
 		case types.Bool:
-			b, err := strconv.ParseBool(value)
-			if err != nil {
-				return "", fmt.Errorf("error when parsing boolean '%s': %w", value, err)
+			if value == "" {
+				return "false", nil
+			} else {
+				b, err := strconv.ParseBool(value)
+				if err != nil {
+					return "", fmt.Errorf("error when parsing boolean '%s': %w", value, err)
+				}
+				return fmt.Sprint(b), nil
 			}
-			return fmt.Sprint(b), nil
 		default:
 			return "", fmt.Errorf("unknown basic type '%s'", t)
 		}
