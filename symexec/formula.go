@@ -471,19 +471,6 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 		arr := f.Args[0].Encode(ctx).(*SymArray)
 		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
 	}
-	if function, ok := ctx.funcs[f.Name]; ok {
-		var args []z3.Value
-		for _, a := range f.Args {
-			args = append(args, a.Encode(ctx).(z3.Value))
-		}
-		var res = f.Result.Encode(ctx)
-		switch res := res.(type) {
-		case z3.Int:
-			return res.Eq(function.Apply(args...).(z3.Int))
-		default:
-			panic(fmt.Sprintf("unknown sort '%s'", res.Sort()))
-		}
-	}
 	panic(fmt.Sprintf("unknown function '%s'", f.Name))
 }
 
