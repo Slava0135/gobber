@@ -33,7 +33,8 @@ import "testing"
 	f.WriteString("\n\n")
 	for fn, testcases := range functionTestcases {
 		for i, tc := range testcases {
-			args, err := parseArgs(fn, tc.model)
+			vars := parseVars(tc.model)
+			args, err := parseArgs(fn, vars)
 			if err != nil {
 				fmt.Println("[ERROR]", err)
 				continue
@@ -41,7 +42,20 @@ import "testing"
 			argsStr := strings.Join(args, ", ")
 			name := functionName(fn)
 			f.WriteString(fmt.Sprintf("func Test_%s_%d(t *testing.T) {\n", name, i+1))
-			f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, argsStr))
+			results := fn.Signature.Results()
+			if results != nil && results.Len() == 1 {
+				res, err := parseResult(results.At(0).Type(), vars)
+				if err != nil {
+					fmt.Println("[ERROR]", err)
+					continue
+				}
+				f.WriteString(fmt.Sprintf("\tgot := %s(%s)\n", name, argsStr))
+				f.WriteString(fmt.Sprintf("\tif got != %s {\n", res))
+				f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s(%s) = %%v; want %s\", got)\n", name, argsStr, res))
+				f.WriteString("\t}\n")
+			} else {
+				f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, argsStr))
+			}
 			f.WriteString("}\n\n")
 		}
 	}
@@ -52,8 +66,7 @@ func functionName(fn *ssa.Function) string {
 	return segments[len(segments)-1]
 }
 
-func parseArgs(fn *ssa.Function, model *z3.Model) ([]string, error) {
-	var args []string
+func parseVars(model *z3.Model) map[string]string {
 	vars := make(map[string]string)
 	for _, line := range strings.Split(model.String(), "\n") {
 		segments := strings.Split(line, " -> ")
@@ -61,45 +74,64 @@ func parseArgs(fn *ssa.Function, model *z3.Model) ([]string, error) {
 			vars[segments[0]] = segments[1]
 		}
 	}
+	return vars
+}
+
+func parseArgs(fn *ssa.Function, vars map[string]string) ([]string, error) {
+	var args []string
 	for _, param := range fn.Params {
 		name := param.Name()
 		value, ok := vars[name]
 		if !ok {
 			return nil, fmt.Errorf("param named '%s' not found in model", name)
 		}
-		var trimmed []rune
-		for _, c := range value {
-			switch c {
-			case '(', ')', '\n', '\t', ' ':
-				continue
-			default:
-				trimmed = append(trimmed, c)
-			}
-		}
-		value = string(trimmed)
-		var goValue string
-		switch t := param.Type().(type) {
-		case *types.Basic:
-			switch t.Kind() {
-			case types.Int:
-				i, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					return nil, fmt.Errorf("error when parsing integer '%s': %w", value, err)
-				}
-				goValue = fmt.Sprint(i)
-			case types.Bool:
-				b, err := strconv.ParseBool(value)
-				if err != nil {
-					return nil, fmt.Errorf("error when parsing boolean '%s': %w", value, err)
-				}
-				goValue = fmt.Sprint(b)
-			default:
-				return nil, fmt.Errorf("unknown basic type '%s'", param.Type())
-			}
-		default:
-			return nil, fmt.Errorf("unknown type '%s'", param.Type())
+		goValue, err := parseValue(value, param.Type())
+		if err != nil {
+			return nil, fmt.Errorf("")
 		}
 		args = append(args, goValue)
 	}
 	return args, nil
+}
+
+func parseResult(t types.Type, vars map[string]string) (string, error) {
+	value, ok := vars[resultSpecialVar]
+	if !ok {
+		return "", fmt.Errorf("result not found in model")
+	}
+	return parseValue(value, t)
+}
+
+func parseValue(value string, t types.Type) (string, error) {
+	var trimmed []rune
+	for _, c := range value {
+		switch c {
+		case '(', ')', '\n', '\t', ' ':
+			continue
+		default:
+			trimmed = append(trimmed, c)
+		}
+	}
+	value = string(trimmed)
+	switch t := t.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Int:
+			i, err := strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
+			}
+			return fmt.Sprint(i), nil
+		case types.Bool:
+			b, err := strconv.ParseBool(value)
+			if err != nil {
+				return "", fmt.Errorf("error when parsing boolean '%s': %w", value, err)
+			}
+			return fmt.Sprint(b), nil
+		default:
+			return "", fmt.Errorf("unknown basic type '%s'", t)
+		}
+	default:
+		return "", fmt.Errorf("unknown type '%s'", t)
+	}
 }
