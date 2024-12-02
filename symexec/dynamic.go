@@ -18,23 +18,23 @@ func Dynamic() {
 	}
 
 	for _, tc := range testcases {
-		AnalyzeFileDynamic(tc.Name())
+		r := AnalyzeFileDynamic(tc.Name())
+		GenerateTests(tc.Name(), r)
 	}
 }
 
-func AnalyzeFileDynamic(filename string) map[string]bool {
+func AnalyzeFileDynamic(filename string) map[*ssa.Function][]Testcase {
 	main := buildPackage(filename)
-	res := make(map[string]bool, 0)
+	res := make(map[*ssa.Function][]Testcase, 0)
 	for _, v := range main.Members {
 		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
-			res[fn.Name()] = dynamicFunction(fn, main)
+			res[fn] = dynamicFunction(fn, main)
 		}
 	}
-	fmt.Println()
 	return res
 }
 
-func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) (ok bool) {
+func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) []Testcase {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Println("[ERROR]", r)
@@ -45,8 +45,7 @@ func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) (ok bool) {
 	fmt.Println("::", "printing SSA blocks")
 	printBlocks(fn)
 	fmt.Println("::", "execute")
-	execute(fn, pkg, &RandomQueue{})
-	return true
+	return execute(fn, pkg, &RandomQueue{})
 }
 
 type State struct {
@@ -58,7 +57,8 @@ type Frame struct {
 	blockOrder []int
 }
 
-func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) {
+func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
+	var testcases []Testcase
 	startFrame := &Frame{function: fn, blockOrder: []int{0}}
 	queue.push(State{frames: []*Frame{startFrame}})
 	for !queue.empty() {
@@ -181,11 +181,13 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) {
 			case *ssa.Return:
 				fmt.Println("found solution for path:", next.frames[0].blockOrder)
 				fmt.Println(model)
+				testcases = append(testcases, Testcase{model: model})
 			default:
 				panic(fmt.Sprint("unknown divergence instruction: '", v.String(), "'"))
 			}
 		}
 	}
+	return testcases
 }
 
 func (s *State) copy() State {
