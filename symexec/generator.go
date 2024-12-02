@@ -84,7 +84,7 @@ func parseArgs(fn *ssa.Function, vars map[string]string) ([]string, error) {
 		value := vars[name]
 		goValue, err := parseValue(value, param.Type())
 		if err != nil {
-			return nil, fmt.Errorf("")
+			return nil, err
 		}
 		args = append(args, goValue)
 	}
