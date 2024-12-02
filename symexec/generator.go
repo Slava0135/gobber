@@ -2,7 +2,9 @@ package symexec
 
 import (
 	"fmt"
+	"go/types"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/aclements/go-z3/z3"
@@ -31,10 +33,15 @@ import "testing"
 	f.WriteString("\n\n")
 	for fn, testcases := range functionTestcases {
 		for i, tc := range testcases {
+			args, err := parseArgs(fn, tc.model)
+			if err != nil {
+				fmt.Println("[ERROR]", err)
+				continue
+			}
+			argsStr := strings.Join(args, ", ")
 			name := functionName(fn)
 			f.WriteString(fmt.Sprintf("func Test_%s_%d(t *testing.T) {\n", name, i+1))
-			args := strings.Join(parseArgs(fn, tc.model), ", ")
-			f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, args))
+			f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, argsStr))
 			f.WriteString("}\n\n")
 		}
 	}
@@ -45,7 +52,54 @@ func functionName(fn *ssa.Function) string {
 	return segments[len(segments)-1]
 }
 
-func parseArgs(fn *ssa.Function, model *z3.Model) []string {
+func parseArgs(fn *ssa.Function, model *z3.Model) ([]string, error) {
 	var args []string
-	return args
+	vars := make(map[string]string)
+	for _, line := range strings.Split(model.String(), "\n") {
+		segments := strings.Split(line, " -> ")
+		if len(segments) == 2 {
+			vars[segments[0]] = segments[1]
+		}
+	}
+	for _, param := range fn.Params {
+		name := param.Name()
+		value, ok := vars[name]
+		if !ok {
+			return nil, fmt.Errorf("param named '%s' not found in model", name)
+		}
+		var trimmed []rune
+		for _, c := range value {
+			switch c {
+			case '(', ')', '\n', '\t', ' ':
+				continue
+			default:
+				trimmed = append(trimmed, c)
+			}
+		}
+		value = string(trimmed)
+		var goValue string
+		switch t := param.Type().(type) {
+		case *types.Basic:
+			switch t.Kind() {
+			case types.Int:
+				i, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return nil, fmt.Errorf("error when parsing integer '%s': %w", value, err)
+				}
+				goValue = fmt.Sprint(i)
+			case types.Bool:
+				b, err := strconv.ParseBool(value)
+				if err != nil {
+					return nil, fmt.Errorf("error when parsing boolean '%s': %w", value, err)
+				}
+				goValue = fmt.Sprint(b)
+			default:
+				return nil, fmt.Errorf("unknown basic type '%s'", param.Type())
+			}
+		default:
+			return nil, fmt.Errorf("unknown type '%s'", param.Type())
+		}
+		args = append(args, goValue)
+	}
+	return args, nil
 }
