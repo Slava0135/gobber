@@ -27,7 +27,7 @@ func AnalyzeFileDynamic(filename string) map[*ssa.Function][]Testcase {
 	main := buildPackage(filename)
 	res := make(map[*ssa.Function][]Testcase, 0)
 	for _, v := range main.Members {
-		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
+		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" && fn.Name() == "complexComparison" {
 			res[fn] = dynamicFunction(fn, main)
 		}
 	}
@@ -216,16 +216,11 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						Args:   args,
 					})
 				} else {
-					var params []Var
-					for _, p := range v.Common().StaticCallee().Params {
-						tmp := &TempRegister{t: p.Type(), name: p.Name()}
-						params = append(params, frame.newVar(tmp))
-					}
 					nextCall := &DynamicCall{
 						Result: frame.newVar(v),
 						Name:   name,
 						Args:   args,
-						Params: params,
+						Params: nil,
 						Body:   nil,
 					}
 					frame.push(nextCall)
@@ -233,6 +228,10 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					state.nextFrameId++
 					nextFrame := &Frame{id: state.nextFrameId, function: v.Call.StaticCallee(), call: nextCall}
 					state.frames = append(state.frames, nextFrame)
+					for _, p := range v.Common().StaticCallee().Params {
+						tmp := &TempRegister{t: p.Type(), name: p.Name()}
+						nextCall.Params = append(nextCall.Params, nextFrame.newVar(tmp))
+					}
 					if _, sat := solve(state.formula()); sat {
 						queue.push(state)
 					}
