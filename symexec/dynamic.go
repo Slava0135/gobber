@@ -137,12 +137,15 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		state := queue.pop()
 		frame := state.currentFrame()
 		block := frame.function.Blocks[frame.nextBlock]
-		frame.blockOrder = append(frame.blockOrder, frame.nextBlock)
 		for index, instr := range block.Instrs {
 			if index < frame.nextInstr {
 				continue
 			}
-			frame.nextInstr = 0
+			if index == 0 {
+				frame.blockOrder = append(frame.blockOrder, frame.nextBlock)
+			} else {
+				frame.nextInstr = 0
+			}
 			switch v := instr.(type) {
 			case *ssa.BinOp:
 				frame.push(BinOp{
