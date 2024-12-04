@@ -57,6 +57,15 @@ func (s *State) copy() *State {
 	for _, frame := range s.frames {
 		stateCopy.frames = append(stateCopy.frames, frame.copy())
 	}
+	// patch in-progress dynamic calls
+	for i := 0; i+1 < len(stateCopy.frames); i++ {
+		caller := stateCopy.frames[i]
+		callee := stateCopy.frames[i+1]
+		if _, ok := caller.call.Body[len(caller.call.Body)-1].(DynamicCall); !ok {
+			panic("not a dynamic call")
+		}
+		caller.call.Body[len(caller.call.Body)-1] = callee.call
+	}
 	return stateCopy
 }
 
