@@ -65,6 +65,7 @@ type Frame struct {
 	blockOrder []int
 	call       *DynamicCall
 	nextBlock  int
+	nextInstr  int
 }
 
 func (frame *Frame) push(f Formula) {
@@ -87,7 +88,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		frame := state.currentFrame()
 		block := frame.function.Blocks[frame.nextBlock]
 		frame.blockOrder = append(frame.blockOrder, frame.nextBlock)
-		for _, instr := range block.Instrs {
+		for index, instr := range block.Instrs {
 			switch v := instr.(type) {
 			case *ssa.BinOp:
 				frame.push(BinOp{
@@ -123,6 +124,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 				}
 			case *ssa.Jump:
 				state.currentFrame().nextBlock = v.Block().Succs[0].Index
+				queue.push(state)
 			case *ssa.Return:
 				var results []Var
 				for _, r := range v.Results {
@@ -131,7 +133,16 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 				frame.push(Return{
 					Results: results,
 				})
-				panic("???")
+				if len(state.frames) > 1 {
+					state.frames = state.frames[:len(state.frames)-1]
+					queue.push(state)
+				} else {
+					if model, sat := solve(state.formula()); sat {
+						fmt.Println("found solution for path:", state.frames[0].blockOrder)
+						fmt.Println(model)
+						testcases = append(testcases, Testcase{model: model})
+					}
+				}
 			case *ssa.UnOp:
 				frame.push(UnOp{
 					Result: NewVar(v),
@@ -148,14 +159,20 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					tmp := &TempRegister{t: p.Type(), name: p.Name()}
 					params = append(params, NewVar(tmp))
 				}
-				frame.call.Body = append(frame.call.Body, DynamicCall{
+				nextCall := &DynamicCall{
 					Result: NewVar(v),
 					Name:   removeArgs(v.Call.String()),
 					Args:   args,
 					Params: params,
 					Body:   nil,
-				})
-				panic("???")
+				}
+				frame.push(nextCall)
+				frame.nextInstr = index + 1
+				nextFrame := &Frame{function: v.Call.StaticCallee(), blockOrder: []int{0}, call: nextCall}
+				state.frames = append(state.frames, nextFrame)
+				if _, sat := solve(state.formula()); sat {
+					queue.push(state)
+				}
 			case *ssa.Convert:
 				frame.push(Convert{
 					Result: NewVar(v),
