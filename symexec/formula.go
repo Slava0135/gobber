@@ -471,11 +471,11 @@ func (f BuiltInCall) Encode(ctx *EncodingContext) SymValue {
 	f.Result.makeFresh(ctx)
 	// built-in
 	switch f.Name {
-	case "real":
+	case realFunc:
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
-	case "imag":
+	case imagFunc:
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
-	case "len":
+	case lenFunc:
 		arr := f.Args[0].Encode(ctx).(*SymArray)
 		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
 	}
