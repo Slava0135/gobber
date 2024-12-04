@@ -494,22 +494,11 @@ func (f DynamicCall) String() string {
 	for _, a := range f.Args {
 		s = append(s, a.String())
 	}
-	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
+	return fmt.Sprintf("%s == %s(%s) {%s}", f.Result, f.Name, strings.Join(s, ", "), And{f.Body})
 }
 
 func (f DynamicCall) Encode(ctx *EncodingContext) SymValue {
-	f.Result.makeFresh(ctx)
-	// built-in
-	switch f.Name {
-	case realFunc:
-		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
-	case imagFunc:
-		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
-	case lenFunc:
-		arr := f.Args[0].Encode(ctx).(*SymArray)
-		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
-	}
-	panic(fmt.Sprintf("unknown function '%s'", f.Name))
+	panic("???")
 }
 
 func (f DynamicCall) ScanVars(vars map[string]Var) {
