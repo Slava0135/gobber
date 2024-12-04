@@ -23,7 +23,6 @@ type EncodingContext struct {
 	asserts []z3.Bool
 
 	vars     map[string]SymValue
-	funcs    map[string]z3.FuncDecl
 	rawTypes map[string]z3.Sort
 
 	varsUsed map[string]struct{}

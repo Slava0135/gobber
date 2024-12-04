@@ -13,9 +13,37 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+const (
+	realFunc = "real"
+	imagFunc = "imag"
+	lenFunc  = "len"
+)
+
+func IsBuiltIn(name string) bool {
+	switch name {
+	case realFunc, imagFunc, lenFunc:
+		return true
+	default:
+		return false
+	}
+}
+
 type Register interface {
 	Type() types.Type
 	Name() string
+}
+
+type TempRegister struct {
+	t    types.Type
+	name string
+}
+
+func (t *TempRegister) Type() types.Type {
+	return t.t
+}
+
+func (t *TempRegister) Name() string {
+	return t.name
 }
 
 func buildPackage(filename string) *ssa.Package {

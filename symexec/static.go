@@ -108,7 +108,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 			for _, a := range v.Call.Args {
 				args = append(args, NewVar(a))
 			}
-			subFormulas = append(subFormulas, Call{
+			subFormulas = append(subFormulas, BuiltInCall{
 				Result: NewVar(v),
 				Name:   removeArgs(v.Call.String()),
 				Args:   args,
@@ -153,6 +153,11 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "listing all variables")
 	vars := make(map[string]Var, 0)
 	f.ScanVars(vars)
+	vars[resultSpecialVar] = Var{
+		Name:     resultSpecialVar,
+		Type:     fn.Signature.Results().At(0).Type(),
+		Constant: false,
+	}
 	for _, v := range vars {
 		fmt.Print(v, " ")
 	}
@@ -163,7 +168,6 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		Context: z3ctx,
 
 		vars:     make(map[string]SymValue, 0),
-		funcs:    make(map[string]z3.FuncDecl, 0),
 		rawTypes: make(map[string]z3.Sort, 0),
 
 		fieldsMemory:      make(map[string][]z3.Array),
