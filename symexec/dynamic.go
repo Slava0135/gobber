@@ -273,7 +273,6 @@ func solve(f Formula) (model *z3.Model, sat bool) {
 		Context: z3ctx,
 
 		vars:     make(map[string]SymValue, 0),
-		funcs:    make(map[string]z3.FuncDecl, 0),
 		rawTypes: make(map[string]z3.Sort, 0),
 
 		varsUsed: make(map[string]struct{}),

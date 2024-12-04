@@ -163,7 +163,6 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 		Context: z3ctx,
 
 		vars:     make(map[string]SymValue, 0),
-		funcs:    make(map[string]z3.FuncDecl, 0),
 		rawTypes: make(map[string]z3.Sort, 0),
 
 		fieldsMemory:      make(map[string][]z3.Array),
