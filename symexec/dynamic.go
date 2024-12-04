@@ -27,7 +27,7 @@ func AnalyzeFileDynamic(filename string) map[*ssa.Function][]Testcase {
 	main := buildPackage(filename)
 	res := make(map[*ssa.Function][]Testcase, 0)
 	for _, v := range main.Members {
-		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" && fn.Name() == "complexComparison" {
+		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
 			res[fn] = dynamicFunction(fn, main)
 		}
 	}

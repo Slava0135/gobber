@@ -392,7 +392,7 @@ func (ret Return) Encode(ctx *EncodingContext) SymValue {
 			arg := ret.Results[0].Encode(ctx).(*Complex)
 			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
 		case *String:
-			return result
+			return ctx.FromBool(true) // TODO
 		}
 		panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 	}

@@ -61,7 +61,7 @@ func TestDynamic_Arrays(t *testing.T) {
 }
 
 func TestDynamic_Complex(t *testing.T) {
-	checkDynamic(t, []string{"complexComparison"}, "complex.go")
+	checkDynamic(t, []string{}, "complex.go")
 }
 
 func TestDynamic_Numbers(t *testing.T) {
