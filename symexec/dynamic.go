@@ -62,7 +62,7 @@ func (s *State) copy() *State {
 	for i := 0; i+1 < len(stateCopy.frames); i++ {
 		caller := stateCopy.frames[i]
 		callee := stateCopy.frames[i+1]
-		if _, ok := caller.call.Body[len(caller.call.Body)-1].(DynamicCall); !ok {
+		if _, ok := caller.call.Body[len(caller.call.Body)-1].(*DynamicCall); !ok {
 			panic("not a dynamic call")
 		}
 		caller.call.Body[len(caller.call.Body)-1] = callee.call
@@ -137,6 +137,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		state := queue.pop()
 		frame := state.currentFrame()
 		block := frame.function.Blocks[frame.nextBlock]
+	instructionLoop:
 		for index, instr := range block.Instrs {
 			if index < frame.nextInstr {
 				continue
@@ -179,9 +180,11 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						queue.push(elseState)
 					}
 				}
+				break instructionLoop
 			case *ssa.Jump:
 				state.currentFrame().nextBlock = v.Block().Succs[0].Index
 				queue.push(state)
+				break instructionLoop
 			case *ssa.Return:
 				var results []Var
 				for _, r := range v.Results {
@@ -200,6 +203,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						testcases = append(testcases, Testcase{model: model})
 					}
 				}
+				break instructionLoop
 			case *ssa.UnOp:
 				frame.push(UnOp{
 					Result: frame.newVar(v),
@@ -238,6 +242,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					if _, sat := solve(state.formula()); sat {
 						queue.push(state)
 					}
+					break instructionLoop
 				}
 			case *ssa.Convert:
 				frame.push(Convert{
