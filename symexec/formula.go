@@ -403,18 +403,6 @@ func (ret Return) ScanVars(vars map[string]Var) {
 	if len(ret.Results) > 1 {
 		panic("multiple return values are not supported")
 	}
-	res := ret.Results[0]
-	if v, ok := vars[resultSpecialVar]; ok {
-		if res.Type != v.Type {
-			panic(fmt.Sprintf("return values can't have different types ('%s' and '%s')", res.Type, v.Type))
-		}
-	} else {
-		vars[resultSpecialVar] = Var{
-			Name:     resultSpecialVar,
-			Type:     res.Type,
-			Constant: res.Constant,
-		}
-	}
 	for _, v := range ret.Results {
 		v.ScanVars(vars)
 	}

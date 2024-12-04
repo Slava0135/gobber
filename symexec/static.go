@@ -153,6 +153,11 @@ func encodeFormula(fn *ssa.Function, f Formula) {
 	fmt.Println("::", "listing all variables")
 	vars := make(map[string]Var, 0)
 	f.ScanVars(vars)
+	vars[resultSpecialVar] = Var{
+		Name:     resultSpecialVar,
+		Type:     fn.Signature.Results().At(0).Type(),
+		Constant: false,
+	}
 	for _, v := range vars {
 		fmt.Print(v, " ")
 	}

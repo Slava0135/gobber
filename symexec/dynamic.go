@@ -164,7 +164,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						Cond:   frame.newVar(v.Cond),
 						IsTrue: true,
 					})
-					if _, sat := solve(thenState.formula()); sat {
+					if _, sat := solve(fn, thenState.formula()); sat {
 						queue.push(thenState)
 					}
 				}
@@ -176,7 +176,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						Cond:   frame.newVar(v.Cond),
 						IsTrue: false,
 					})
-					if _, sat := solve(elseState.formula()); sat {
+					if _, sat := solve(fn, elseState.formula()); sat {
 						queue.push(elseState)
 					}
 				}
@@ -197,7 +197,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					state.frames = state.frames[:len(state.frames)-1]
 					queue.push(state)
 				} else {
-					if model, sat := solve(state.formula()); sat {
+					if model, sat := solve(fn, state.formula()); sat {
 						fmt.Println("found solution for path:", state.frames[0].blockOrder)
 						fmt.Println(model)
 						testcases = append(testcases, Testcase{model: model})
@@ -239,7 +239,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						tmp := &TempRegister{t: p.Type(), name: p.Name()}
 						nextCall.Params = append(nextCall.Params, nextFrame.newVar(tmp))
 					}
-					if _, sat := solve(state.formula()); sat {
+					if _, sat := solve(fn, state.formula()); sat {
 						queue.push(state)
 					}
 					break instructionLoop
@@ -287,9 +287,14 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 	return testcases
 }
 
-func solve(f Formula) (model *z3.Model, sat bool) {
+func solve(fn *ssa.Function, f Formula) (model *z3.Model, sat bool) {
 	vars := make(map[string]Var, 0)
 	f.ScanVars(vars)
+	vars[resultSpecialVar] = Var{
+		Name:     resultSpecialVar,
+		Type:     fn.Signature.Results().At(0).Type(),
+		Constant: false,
+	}
 
 	z3ctx := z3.NewContext(nil)
 	ctx := &EncodingContext{
