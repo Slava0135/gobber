@@ -89,6 +89,9 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		block := frame.function.Blocks[frame.nextBlock]
 		frame.blockOrder = append(frame.blockOrder, frame.nextBlock)
 		for index, instr := range block.Instrs {
+			if index < frame.nextInstr {
+				continue
+			}
 			switch v := instr.(type) {
 			case *ssa.BinOp:
 				frame.push(BinOp{
@@ -233,6 +236,7 @@ func (s *State) copy() *State {
 		frameCopy.blockOrder = append(frameCopy.blockOrder, frame.blockOrder...)
 		frameCopy.call = frame.call
 		frameCopy.nextBlock = frame.nextBlock
+		frameCopy.nextInstr = frame.nextInstr
 
 		stateCopy.frames = append(stateCopy.frames, frameCopy)
 	}
