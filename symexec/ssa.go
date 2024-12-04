@@ -13,6 +13,21 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 )
 
+const (
+	realFunc = "real"
+	imagFunc = "imag"
+	lenFunc  = "len"
+)
+
+func IsBuiltIn(name string) bool {
+	switch name {
+	case realFunc, imagFunc, lenFunc:
+		return true
+	default:
+		return false
+	}
+}
+
 type Register interface {
 	Type() types.Type
 	Name() string

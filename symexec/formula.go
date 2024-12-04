@@ -51,7 +51,7 @@ type If struct {
 	Else Formula
 }
 
-type Call struct {
+type BuiltInCall struct {
 	Result Var
 	Name   string
 	Args   []Var
@@ -459,7 +459,7 @@ func (i If) ScanVars(vars map[string]Var) {
 	i.Else.ScanVars(vars)
 }
 
-func (f Call) String() string {
+func (f BuiltInCall) String() string {
 	var s []string
 	for _, a := range f.Args {
 		s = append(s, a.String())
@@ -467,7 +467,7 @@ func (f Call) String() string {
 	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
 }
 
-func (f Call) Encode(ctx *EncodingContext) SymValue {
+func (f BuiltInCall) Encode(ctx *EncodingContext) SymValue {
 	f.Result.makeFresh(ctx)
 	// built-in
 	switch f.Name {
@@ -482,7 +482,7 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 	panic(fmt.Sprintf("unknown function '%s'", f.Name))
 }
 
-func (f Call) ScanVars(vars map[string]Var) {
+func (f BuiltInCall) ScanVars(vars map[string]Var) {
 	f.Result.ScanVars(vars)
 	for _, a := range f.Args {
 		a.ScanVars(vars)
@@ -501,11 +501,11 @@ func (f DynamicCall) Encode(ctx *EncodingContext) SymValue {
 	f.Result.makeFresh(ctx)
 	// built-in
 	switch f.Name {
-	case "real":
+	case realFunc:
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
-	case "imag":
+	case imagFunc:
 		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
-	case "len":
+	case lenFunc:
 		arr := f.Args[0].Encode(ctx).(*SymArray)
 		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
 	}

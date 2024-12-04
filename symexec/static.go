@@ -108,7 +108,7 @@ func getBlockFormula(blocks []*ssa.BasicBlock, blockIndex int, visitOrder []int,
 			for _, a := range v.Call.Args {
 				args = append(args, NewVar(a))
 			}
-			subFormulas = append(subFormulas, Call{
+			subFormulas = append(subFormulas, BuiltInCall{
 				Result: NewVar(v),
 				Name:   removeArgs(v.Call.String()),
 				Args:   args,

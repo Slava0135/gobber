@@ -154,24 +154,33 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 				for _, a := range v.Call.Args {
 					args = append(args, NewVar(a))
 				}
-				var params []Var
-				for _, p := range v.Common().StaticCallee().Params {
-					tmp := &TempRegister{t: p.Type(), name: p.Name()}
-					params = append(params, NewVar(tmp))
-				}
-				nextCall := &DynamicCall{
-					Result: NewVar(v),
-					Name:   removeArgs(v.Call.String()),
-					Args:   args,
-					Params: params,
-					Body:   nil,
-				}
-				frame.push(nextCall)
-				frame.nextInstr = index + 1
-				nextFrame := &Frame{function: v.Call.StaticCallee(), blockOrder: []int{0}, call: nextCall}
-				state.frames = append(state.frames, nextFrame)
-				if _, sat := solve(state.formula()); sat {
-					queue.push(state)
+				name := removeArgs(v.Call.String())
+				if IsBuiltIn(name) {
+					frame.push(BuiltInCall{
+						Result: NewVar(v),
+						Name:   name,
+						Args:   args,
+					})
+				} else {
+					var params []Var
+					for _, p := range v.Common().StaticCallee().Params {
+						tmp := &TempRegister{t: p.Type(), name: p.Name()}
+						params = append(params, NewVar(tmp))
+					}
+					nextCall := &DynamicCall{
+						Result: NewVar(v),
+						Name:   name,
+						Args:   args,
+						Params: params,
+						Body:   nil,
+					}
+					frame.push(nextCall)
+					frame.nextInstr = index + 1
+					nextFrame := &Frame{function: v.Call.StaticCallee(), blockOrder: []int{0}, call: nextCall}
+					state.frames = append(state.frames, nextFrame)
+					if _, sat := solve(state.formula()); sat {
+						queue.push(state)
+					}
 				}
 			case *ssa.Convert:
 				frame.push(Convert{
