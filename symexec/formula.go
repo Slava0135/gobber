@@ -552,6 +552,16 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
 				}
 			}
+		case types.Complex128:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Complex128:
+					res := c.Result.Encode(ctx).(*Complex)
+					arg := c.Arg.Encode(ctx).(*Complex)
+					return res.real.Eq(arg.real).And(res.imag.Eq(arg.imag))
+				}
+			}
 		}
 	}
 	panic(fmt.Sprintf("unsupported conversion from '%s' to '%s'", c.Arg.Type, c.Result.Type))
