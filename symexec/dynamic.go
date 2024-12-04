@@ -118,6 +118,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 			if index < frame.nextInstr {
 				continue
 			}
+			frame.nextInstr = 0
 			switch v := instr.(type) {
 			case *ssa.BinOp:
 				frame.push(BinOp{
