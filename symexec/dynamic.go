@@ -52,6 +52,14 @@ type State struct {
 	frames []*Frame
 }
 
+func (s *State) copy() *State {
+	stateCopy := &State{}
+	for _, frame := range s.frames {
+		stateCopy.frames = append(stateCopy.frames, frame.copy())
+	}
+	return stateCopy
+}
+
 func (s *State) currentFrame() *Frame {
 	return s.frames[len(s.frames)-1]
 }
@@ -72,6 +80,24 @@ func (frame *Frame) push(f Formula) {
 	frame.call.Body = append(frame.call.Body, f)
 }
 
+func (frame *Frame) copy() *Frame {
+	var blockOrder []int
+	var body []Formula
+	return &Frame{
+		function:   frame.function,
+		blockOrder: append(blockOrder, frame.blockOrder...),
+		call: &DynamicCall{
+			Result: frame.call.Result,
+			Name:   frame.call.Name,
+			Args:   frame.call.Args,
+			Params: frame.call.Params,
+			Body:   append(body, frame.call.Body...),
+		},
+		nextBlock: frame.nextBlock,
+		nextInstr: frame.nextInstr,
+	}
+}
+
 func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 	var testcases []Testcase
 	entryPoint := &DynamicCall{
@@ -81,7 +107,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		Params: nil,
 		Body:   nil,
 	}
-	entryFrame := &Frame{function: fn, blockOrder: []int{0}, call: entryPoint}
+	entryFrame := &Frame{function: fn, call: entryPoint}
 	queue.push(&State{frames: []*Frame{entryFrame}})
 	for !queue.empty() {
 		state := queue.pop()
@@ -226,21 +252,6 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 		}
 	}
 	return testcases
-}
-
-func (s *State) copy() *State {
-	stateCopy := &State{}
-	for _, frame := range s.frames {
-		frameCopy := &Frame{}
-		frameCopy.function = frame.function
-		frameCopy.blockOrder = append(frameCopy.blockOrder, frame.blockOrder...)
-		frameCopy.call = frame.call
-		frameCopy.nextBlock = frame.nextBlock
-		frameCopy.nextInstr = frame.nextInstr
-
-		stateCopy.frames = append(stateCopy.frames, frameCopy)
-	}
-	return stateCopy
 }
 
 func solve(f Formula) (model *z3.Model, sat bool) {
