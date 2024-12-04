@@ -498,7 +498,18 @@ func (f DynamicCall) String() string {
 }
 
 func (f DynamicCall) Encode(ctx *EncodingContext) SymValue {
-	panic("???")
+	f.Result.makeFresh(ctx)
+	tmpResultVar := ctx.vars[resultSpecialVar]
+	ctx.vars[resultSpecialVar] = f.Result.Encode(ctx)
+	var subFormulas []Formula
+	for i, p := range f.Params {
+		a := f.Args[i]
+		subFormulas = append(subFormulas, Convert{Result: p, Arg: a})
+	}
+	subFormulas = append(subFormulas, f.Body...)
+	result := And{subFormulas}.Encode(ctx)
+	ctx.vars[resultSpecialVar] = tmpResultVar
+	return result
 }
 
 func (f DynamicCall) ScanVars(vars map[string]Var) {
@@ -508,6 +519,9 @@ func (f DynamicCall) ScanVars(vars map[string]Var) {
 	}
 	for _, a := range f.Params {
 		a.ScanVars(vars)
+	}
+	for _, b := range f.Body {
+		b.ScanVars(vars)
 	}
 }
 

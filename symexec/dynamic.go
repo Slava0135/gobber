@@ -49,7 +49,8 @@ func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) []Testcase {
 }
 
 type State struct {
-	frames []*Frame
+	nextFrameId int
+	frames      []*Frame
 }
 
 func (s *State) copy() *State {
@@ -66,6 +67,7 @@ func (s *State) copy() *State {
 		}
 		caller.call.Body[len(caller.call.Body)-1] = callee.call
 	}
+	stateCopy.nextFrameId = s.nextFrameId
 	return stateCopy
 }
 
@@ -78,6 +80,7 @@ func (s *State) formula() Formula {
 }
 
 type Frame struct {
+	id         int
 	function   *ssa.Function
 	blockOrder []int
 	call       *DynamicCall
@@ -89,10 +92,22 @@ func (frame *Frame) push(f Formula) {
 	frame.call.Body = append(frame.call.Body, f)
 }
 
+func (frame *Frame) newVar(reg Register) Var {
+	tmp := &TempRegister{
+		name: reg.Name(),
+		t:    reg.Type(),
+	}
+	if frame.id > 0 {
+		tmp.name = fmt.Sprintf("%d#%s", frame.id, tmp.name)
+	}
+	return NewVar(tmp)
+}
+
 func (frame *Frame) copy() *Frame {
 	var blockOrder []int
 	var body []Formula
 	return &Frame{
+		id:         frame.id,
 		function:   frame.function,
 		blockOrder: append(blockOrder, frame.blockOrder...),
 		call: &DynamicCall{
@@ -131,10 +146,10 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 			switch v := instr.(type) {
 			case *ssa.BinOp:
 				frame.push(BinOp{
-					Result: NewVar(v),
-					Left:   NewVar(v.X),
+					Result: frame.newVar(v),
+					Left:   frame.newVar(v.X),
 					Op:     v.Op.String(),
-					Right:  NewVar(v.Y),
+					Right:  frame.newVar(v.Y),
 				})
 			case *ssa.If:
 				{
@@ -142,7 +157,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					thenFrame := thenState.currentFrame()
 					thenFrame.nextBlock = v.Block().Succs[0].Index
 					thenFrame.push(Condition{
-						Cond:   NewVar(v.Cond),
+						Cond:   frame.newVar(v.Cond),
 						IsTrue: true,
 					})
 					if _, sat := solve(thenState.formula()); sat {
@@ -154,7 +169,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					elseFrame := elseState.currentFrame()
 					elseFrame.nextBlock = v.Block().Succs[1].Index
 					elseFrame.push(Condition{
-						Cond:   NewVar(v.Cond),
+						Cond:   frame.newVar(v.Cond),
 						IsTrue: false,
 					})
 					if _, sat := solve(elseState.formula()); sat {
@@ -167,7 +182,7 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 			case *ssa.Return:
 				var results []Var
 				for _, r := range v.Results {
-					results = append(results, NewVar(r))
+					results = append(results, frame.newVar(r))
 				}
 				frame.push(Return{
 					Results: results,
@@ -184,19 +199,19 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 				}
 			case *ssa.UnOp:
 				frame.push(UnOp{
-					Result: NewVar(v),
-					Arg:    NewVar(v.X),
+					Result: frame.newVar(v),
+					Arg:    frame.newVar(v.X),
 					Op:     v.Op.String(),
 				})
 			case *ssa.Call:
 				var args []Var
 				for _, a := range v.Call.Args {
-					args = append(args, NewVar(a))
+					args = append(args, frame.newVar(a))
 				}
 				name := removeArgs(v.Call.String())
 				if IsBuiltIn(name) {
 					frame.push(BuiltInCall{
-						Result: NewVar(v),
+						Result: frame.newVar(v),
 						Name:   name,
 						Args:   args,
 					})
@@ -204,10 +219,10 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					var params []Var
 					for _, p := range v.Common().StaticCallee().Params {
 						tmp := &TempRegister{t: p.Type(), name: p.Name()}
-						params = append(params, NewVar(tmp))
+						params = append(params, frame.newVar(tmp))
 					}
 					nextCall := &DynamicCall{
-						Result: NewVar(v),
+						Result: frame.newVar(v),
 						Name:   name,
 						Args:   args,
 						Params: params,
@@ -215,7 +230,8 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					}
 					frame.push(nextCall)
 					frame.nextInstr = index + 1
-					nextFrame := &Frame{function: v.Call.StaticCallee(), blockOrder: []int{0}, call: nextCall}
+					state.nextFrameId++
+					nextFrame := &Frame{id: state.nextFrameId, function: v.Call.StaticCallee(), call: nextCall}
 					state.frames = append(state.frames, nextFrame)
 					if _, sat := solve(state.formula()); sat {
 						queue.push(state)
@@ -223,8 +239,8 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 				}
 			case *ssa.Convert:
 				frame.push(Convert{
-					Result: NewVar(v),
-					Arg:    NewVar(v.X),
+					Result: frame.newVar(v),
+					Arg:    frame.newVar(v.X),
 				})
 			case *ssa.Phi:
 				preds := v.Block().Preds
@@ -241,19 +257,19 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					}
 				}
 				frame.push(Convert{
-					Result: NewVar(v),
-					Arg:    NewVar(v.Edges[mostRecent]),
+					Result: frame.newVar(v),
+					Arg:    frame.newVar(v.Edges[mostRecent]),
 				})
 			case *ssa.IndexAddr:
 				frame.push(IndexAddr{
-					Result: NewVar(v),
-					Array:  NewVar(v.X),
-					Index:  NewVar(v.Index),
+					Result: frame.newVar(v),
+					Array:  frame.newVar(v.X),
+					Index:  frame.newVar(v.Index),
 				})
 			case *ssa.FieldAddr:
 				frame.push(FieldAddr{
-					Result: NewVar(v),
-					Struct: NewVar(v.X),
+					Result: frame.newVar(v),
+					Struct: frame.newVar(v.X),
 					Field:  v.Field,
 				})
 			default:
