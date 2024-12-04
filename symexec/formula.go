@@ -57,6 +57,14 @@ type Call struct {
 	Args   []Var
 }
 
+type DynamicCall struct {
+	Result Var
+	Name   string
+	Args   []Var
+	Params []Var
+	Body   []Formula
+}
+
 type Convert struct {
 	Result Var
 	Arg    Var
@@ -477,6 +485,39 @@ func (f Call) Encode(ctx *EncodingContext) SymValue {
 func (f Call) ScanVars(vars map[string]Var) {
 	f.Result.ScanVars(vars)
 	for _, a := range f.Args {
+		a.ScanVars(vars)
+	}
+}
+
+func (f DynamicCall) String() string {
+	var s []string
+	for _, a := range f.Args {
+		s = append(s, a.String())
+	}
+	return fmt.Sprintf("%s == %s(%s)", f.Result, f.Name, strings.Join(s, ", "))
+}
+
+func (f DynamicCall) Encode(ctx *EncodingContext) SymValue {
+	f.Result.makeFresh(ctx)
+	// built-in
+	switch f.Name {
+	case "real":
+		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).real)
+	case "imag":
+		return f.Result.Encode(ctx).(z3.Float).Eq(f.Args[0].Encode(ctx).(*Complex).imag)
+	case "len":
+		arr := f.Args[0].Encode(ctx).(*SymArray)
+		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
+	}
+	panic(fmt.Sprintf("unknown function '%s'", f.Name))
+}
+
+func (f DynamicCall) ScanVars(vars map[string]Var) {
+	f.Result.ScanVars(vars)
+	for _, a := range f.Args {
+		a.ScanVars(vars)
+	}
+	for _, a := range f.Params {
 		a.ScanVars(vars)
 	}
 }

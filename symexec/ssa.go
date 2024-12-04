@@ -18,6 +18,19 @@ type Register interface {
 	Name() string
 }
 
+type TempRegister struct {
+	t    types.Type
+	name string
+}
+
+func (t *TempRegister) Type() types.Type {
+	return t.t
+}
+
+func (t *TempRegister) Name() string {
+	return t.name
+}
+
 func buildPackage(filename string) *ssa.Package {
 	fmt.Printf(":: building SSA graph for file '%s'\n", filename)
 

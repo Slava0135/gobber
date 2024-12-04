@@ -52,150 +52,162 @@ type State struct {
 	frames []*Frame
 }
 
+func (s *State) currentFrame() *Frame {
+	return s.frames[len(s.frames)-1]
+}
+
+func (s *State) formula() Formula {
+	return And{s.frames[0].call.Body}
+}
+
 type Frame struct {
 	function   *ssa.Function
 	blockOrder []int
+	call       *DynamicCall
+	nextBlock  int
+}
+
+func (frame *Frame) push(f Formula) {
+	frame.call.Body = append(frame.call.Body, f)
 }
 
 func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 	var testcases []Testcase
-	startFrame := &Frame{function: fn, blockOrder: []int{0}}
-	queue.push(State{frames: []*Frame{startFrame}})
+	entryPoint := &DynamicCall{
+		Result: Var{},
+		Name:   fn.Name(),
+		Args:   nil,
+		Params: nil,
+		Body:   nil,
+	}
+	entryFrame := &Frame{function: fn, blockOrder: []int{0}, call: entryPoint}
+	queue.push(&State{frames: []*Frame{entryFrame}})
 	for !queue.empty() {
-		next := queue.pop()
-		var subFormulas []Formula
-		var lastInstr ssa.Instruction
-		for _, frame := range next.frames {
-			for blockNumber, blockIndex := range frame.blockOrder {
-				block := fn.Blocks[blockIndex]
-				for _, v := range block.Instrs {
-					lastInstr = v
-					switch v := v.(type) {
-					case *ssa.BinOp:
-						subFormulas = append(subFormulas, BinOp{
-							Result: NewVar(v),
-							Left:   NewVar(v.X),
-							Op:     v.Op.String(),
-							Right:  NewVar(v.Y),
-						})
-					case *ssa.If:
-						if blockNumber+1 < len(frame.blockOrder) {
-							isTrue := false
-							if v.Block().Succs[0].Index == frame.blockOrder[blockNumber+1] {
-								isTrue = true
-							}
-							subFormulas = append(subFormulas, Condition{
-								Cond:   NewVar(v.Cond),
-								IsTrue: isTrue,
-							})
-						}
-					case *ssa.Jump:
-						// do nothing
-					case *ssa.Return:
-						var results []Var
-						for _, r := range v.Results {
-							results = append(results, NewVar(r))
-						}
-						subFormulas = append(subFormulas, Return{
-							Results: results,
-						})
-					case *ssa.UnOp:
-						subFormulas = append(subFormulas, UnOp{
-							Result: NewVar(v),
-							Arg:    NewVar(v.X),
-							Op:     v.Op.String(),
-						})
-					case *ssa.Call:
-						// TODO make interprocedural
-						var args []Var
-						for _, a := range v.Call.Args {
-							args = append(args, NewVar(a))
-						}
-						subFormulas = append(subFormulas, Call{
-							Result: NewVar(v),
-							Name:   removeArgs(v.Call.String()),
-							Args:   args,
-						})
-					case *ssa.Convert:
-						subFormulas = append(subFormulas, Convert{
-							Result: NewVar(v),
-							Arg:    NewVar(v.X),
-						})
-					case *ssa.Phi:
-						preds := v.Block().Preds
-						var blocksIdxs []int
-						for _, b := range preds {
-							blocksIdxs = append(blocksIdxs, b.Index)
-						}
-						mostRecent := 0
-						for _, i := range frame.blockOrder[:blockNumber] {
-							for k, j := range blocksIdxs {
-								if j == i {
-									mostRecent = k
-								}
-							}
-						}
-						subFormulas = append(subFormulas, Convert{
-							Result: NewVar(v),
-							Arg:    NewVar(v.Edges[mostRecent]),
-						})
-					case *ssa.IndexAddr:
-						subFormulas = append(subFormulas, IndexAddr{
-							Result: NewVar(v),
-							Array:  NewVar(v.X),
-							Index:  NewVar(v.Index),
-						})
-					case *ssa.FieldAddr:
-						subFormulas = append(subFormulas, FieldAddr{
-							Result: NewVar(v),
-							Struct: NewVar(v.X),
-							Field:  v.Field,
-						})
-					default:
-						panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))
-					}
-				}
-			}
-		}
-		formula := And{SubFormulas: subFormulas}
-		if model, sat := solve(formula); sat {
-			switch v := lastInstr.(type) {
+		state := queue.pop()
+		frame := state.currentFrame()
+		block := frame.function.Blocks[frame.nextBlock]
+		frame.blockOrder = append(frame.blockOrder, frame.nextBlock)
+		for _, instr := range block.Instrs {
+			switch v := instr.(type) {
+			case *ssa.BinOp:
+				frame.push(BinOp{
+					Result: NewVar(v),
+					Left:   NewVar(v.X),
+					Op:     v.Op.String(),
+					Right:  NewVar(v.Y),
+				})
 			case *ssa.If:
 				{
-					thenState := next.copy()
-					lastFrame := thenState.frames[len(thenState.frames)-1]
-					lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[0].Index)
-					queue.push(thenState)
+					thenState := state.copy()
+					thenFrame := thenState.currentFrame()
+					thenFrame.nextBlock = v.Block().Succs[0].Index
+					thenFrame.push(Condition{
+						Cond:   NewVar(v.Cond),
+						IsTrue: true,
+					})
+					if _, sat := solve(thenState.formula()); sat {
+						queue.push(thenState)
+					}
 				}
 				{
-					elseState := next.copy()
-					lastFrame := elseState.frames[len(elseState.frames)-1]
-					lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[1].Index)
-					queue.push(elseState)
+					elseState := state.copy()
+					elseFrame := elseState.currentFrame()
+					elseFrame.nextBlock = v.Block().Succs[1].Index
+					elseFrame.push(Condition{
+						Cond:   NewVar(v.Cond),
+						IsTrue: false,
+					})
+					if _, sat := solve(elseState.formula()); sat {
+						queue.push(elseState)
+					}
 				}
 			case *ssa.Jump:
-				jumpState := next.copy()
-				lastFrame := jumpState.frames[len(jumpState.frames)-1]
-				lastFrame.blockOrder = append(lastFrame.blockOrder, v.Block().Succs[0].Index)
-				queue.push(jumpState)
+				state.currentFrame().nextBlock = v.Block().Succs[0].Index
 			case *ssa.Return:
-				fmt.Println("found solution for path:", next.frames[0].blockOrder)
-				fmt.Println(model)
-				testcases = append(testcases, Testcase{model: model})
+				var results []Var
+				for _, r := range v.Results {
+					results = append(results, NewVar(r))
+				}
+				frame.push(Return{
+					Results: results,
+				})
+				panic("???")
+			case *ssa.UnOp:
+				frame.push(UnOp{
+					Result: NewVar(v),
+					Arg:    NewVar(v.X),
+					Op:     v.Op.String(),
+				})
+			case *ssa.Call:
+				var args []Var
+				for _, a := range v.Call.Args {
+					args = append(args, NewVar(a))
+				}
+				var params []Var
+				for _, p := range v.Common().StaticCallee().Params {
+					tmp := &TempRegister{t: p.Type(), name: p.Name()}
+					params = append(params, NewVar(tmp))
+				}
+				frame.call.Body = append(frame.call.Body, DynamicCall{
+					Result: NewVar(v),
+					Name:   removeArgs(v.Call.String()),
+					Args:   args,
+					Params: params,
+					Body:   nil,
+				})
+				panic("???")
+			case *ssa.Convert:
+				frame.push(Convert{
+					Result: NewVar(v),
+					Arg:    NewVar(v.X),
+				})
+			case *ssa.Phi:
+				preds := v.Block().Preds
+				var blocksIdxs []int
+				for _, b := range preds {
+					blocksIdxs = append(blocksIdxs, b.Index)
+				}
+				mostRecent := 0
+				for _, i := range frame.blockOrder[:len(frame.blockOrder)-1] {
+					for k, j := range blocksIdxs {
+						if j == i {
+							mostRecent = k
+						}
+					}
+				}
+				frame.push(Convert{
+					Result: NewVar(v),
+					Arg:    NewVar(v.Edges[mostRecent]),
+				})
+			case *ssa.IndexAddr:
+				frame.push(IndexAddr{
+					Result: NewVar(v),
+					Array:  NewVar(v.X),
+					Index:  NewVar(v.Index),
+				})
+			case *ssa.FieldAddr:
+				frame.push(FieldAddr{
+					Result: NewVar(v),
+					Struct: NewVar(v.X),
+					Field:  v.Field,
+				})
 			default:
-				panic(fmt.Sprint("unknown divergence instruction: '", v.String(), "'"))
+				panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))
 			}
 		}
 	}
 	return testcases
 }
 
-func (s *State) copy() State {
-	stateCopy := State{}
+func (s *State) copy() *State {
+	stateCopy := &State{}
 	for _, frame := range s.frames {
 		frameCopy := &Frame{}
 		frameCopy.function = frame.function
 		frameCopy.blockOrder = append(frameCopy.blockOrder, frame.blockOrder...)
+		frameCopy.call = frame.call
+		frameCopy.nextBlock = frame.nextBlock
+
 		stateCopy.frames = append(stateCopy.frames, frameCopy)
 	}
 	return stateCopy
