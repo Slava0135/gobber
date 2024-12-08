@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/aclements/go-z3/z3"
 	"golang.org/x/tools/go/ssa"
@@ -18,7 +19,7 @@ func Dynamic() {
 	}
 
 	for _, tc := range testcases {
-		if tc.IsDir() {
+		if tc.IsDir() || strings.HasSuffix(tc.Name(), "_test.go") {
 			continue
 		}
 		r := AnalyzeFileDynamic(tc.Name())

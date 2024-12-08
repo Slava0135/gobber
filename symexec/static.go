@@ -19,7 +19,7 @@ func Static() {
 	}
 
 	for _, tc := range testcases {
-		if tc.IsDir() {
+		if tc.IsDir() || strings.HasSuffix(tc.Name(), "_test.go") {
 			continue
 		}
 		AnalyzeFileStatic(tc.Name())
