@@ -28,4 +28,4 @@ go.work.sum
 .vscode
 
 # generated tests
-/testdata/*_test.go
+/testdata/**/*_test.go

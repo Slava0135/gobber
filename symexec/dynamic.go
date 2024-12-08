@@ -2,6 +2,7 @@ package symexec
 
 import (
 	"fmt"
+	"go/types"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -33,6 +34,14 @@ func AnalyzeFileDynamic(filename string) map[*ssa.Function][]Testcase {
 	for _, v := range main.Members {
 		if fn, ok := v.(*ssa.Function); ok && fn.Name() != "init" {
 			res[fn] = dynamicFunction(fn, main)
+		}
+		if obj, ok := v.(*ssa.Type); ok {
+			named := obj.Type().(*types.Named)
+			n := named.NumMethods()
+			for i := 0; i < n; i++ {
+				fn := main.Prog.FuncValue(named.Method(i))
+				res[fn] = dynamicFunction(fn, main)
+			}
 		}
 	}
 	return res
