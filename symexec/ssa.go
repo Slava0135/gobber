@@ -119,7 +119,7 @@ func printBlocks(fn *ssa.Function) {
 			case *ssa.UnOp:
 				printInstr("unop")
 			default:
-				panic("unknown instruction")
+				panic(fmt.Sprintf("unknown instruction '%s'", v.String()))
 			}
 		}
 	}
