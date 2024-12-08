@@ -77,9 +77,33 @@ func TestDynamic_SoftConstraints(t *testing.T) {
 }
 
 func TestDynamic_Primitives_Doubles(t *testing.T) {
-	checkDynamic(t, []string{"DoubleInfinity", "SimpleMul", "Sum", "Mul", "SimpleSum", "UnaryMinus"}, "primitives/doubles.go")
+	checkDynamic(t, []string{
+		"DoubleInfinity",
+		"SimpleMul",
+		"Sum",
+		"Mul",
+		"SimpleSum",
+		"UnaryMinus",
+	}, "primitives/doubles.go")
 }
 
 func TestDynamic_Primitives_Overflow(t *testing.T) {
 	checkDynamic(t, []string{"ShortOverflow"}, "primitives/overflow.go")
+}
+
+func TestDynamic_Operators_Bit(t *testing.T) {
+	checkDynamic(t, []string{
+		"ShlWithBigLongShift",
+		"BooleanXor",
+		"BooleanOr",
+		"UshrLong",
+		"BooleanXorCompare",
+		"Sign",
+		"Complement",
+		"And",
+		"BooleanNot",
+		"ShrLong",
+		"BooleanAnd",
+		"ShlLong",
+	}, "operators/bit.go")
 }
