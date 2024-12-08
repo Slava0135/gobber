@@ -236,6 +236,10 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 						Args:   args,
 					})
 				} else {
+					fn := v.Call.StaticCallee()
+					if fn.Package().String() != pkg.String() {
+						panic("external calls are not supported")
+					}
 					nextCall := &DynamicCall{
 						Result: frame.newVar(v),
 						Name:   name,
@@ -246,9 +250,9 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					frame.push(nextCall)
 					frame.nextInstr = index + 1
 					state.nextFrameId++
-					nextFrame := &Frame{id: state.nextFrameId, function: v.Call.StaticCallee(), call: nextCall}
+					nextFrame := &Frame{id: state.nextFrameId, function: fn, call: nextCall}
 					state.frames = append(state.frames, nextFrame)
-					for _, p := range v.Common().StaticCallee().Params {
+					for _, p := range fn.Params {
 						tmp := &TempRegister{t: p.Type(), name: p.Name()}
 						nextCall.Params = append(nextCall.Params, nextFrame.newVar(tmp))
 					}
