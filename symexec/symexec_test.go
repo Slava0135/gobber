@@ -88,22 +88,49 @@ func TestDynamic_Primitives_Doubles(t *testing.T) {
 }
 
 func TestDynamic_Primitives_Overflow(t *testing.T) {
-	checkDynamic(t, []string{"ShortOverflow"}, "primitives/overflow.go")
+	checkDynamic(t, []string{}, "primitives/overflow.go")
 }
 
 func TestDynamic_Operators_Bit(t *testing.T) {
-	checkDynamic(t, []string{
-		"ShlWithBigLongShift",
-		"BooleanXor",
-		"BooleanOr",
-		"UshrLong",
-		"BooleanXorCompare",
-		"Sign",
-		"Complement",
-		"And",
-		"BooleanNot",
-		"ShrLong",
-		"BooleanAnd",
-		"ShlLong",
-	}, "operators/bit.go")
+	checkDynamic(t, []string{}, "operators/bit.go")
+}
+
+func TestDynamic_Objects_RecursiveStruct(t *testing.T) {
+	checkDynamic(t, []string{}, "objects/recursiveStruct.go")
+}
+
+func TestDynamic_Objects_WithPrimitives(t *testing.T) {
+	checkDynamic(t, []string{}, "objects/withPrimitives.go")
+}
+
+func TestDynamic_Objects_WithReference(t *testing.T) {
+	checkDynamic(t, []string{}, "objects/withReference.go")
+}
+
+func TestDynamic_Invokes_SimpleCalls(t *testing.T) {
+	checkDynamic(t, []string{}, "invokes/simpleCalls.go")
+}
+
+func TestDynamic_Flow_Loops(t *testing.T) {
+	checkDynamic(t, []string{}, "flow/loops.go")
+}
+
+func TestDynamic_Flow_Recursion(t *testing.T) {
+	checkDynamic(t, []string{}, "flow/recursion.go")
+}
+
+func TestDynamic_Arrays_ArrayOfArrays(t *testing.T) {
+	checkDynamic(t, []string{}, "arrays/arrayOfArrays.go")
+}
+
+func TestDynamic_Arrays_ArrayOfObjects(t *testing.T) {
+	checkDynamic(t, []string{}, "arrays/arrayOfObjects.go")
+}
+
+func TestDynamic_Arrays_ArrayOverwriteValue(t *testing.T) {
+	checkDynamic(t, []string{}, "arrays/arrayOverwriteValue.go")
+}
+
+func TestDynamic_Arrays_PrimitiveArrays(t *testing.T) {
+	checkDynamic(t, []string{}, "arrays/primitiveArrays.go")
 }

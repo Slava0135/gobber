@@ -1,7 +1,7 @@
 package main
 
 import (
-	"errors",
+	"errors"
 	"math"
 )
 
@@ -264,4 +264,8 @@ func (i *InvokeExample) UpdateValues(fst *InvokeClass, snd *InvokeClass) (int, e
 func (i *InvokeExample) changeTwoObjects(fst *InvokeClass, snd *InvokeClass) {
 	fst.Value = 1
 	snd.Value = 2
+}
+
+func Main() {
+
 }
