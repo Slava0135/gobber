@@ -133,10 +133,20 @@ func parseValue(value string, t types.Type) (string, error) {
 				}
 				return fmt.Sprint(b), nil
 			}
+		case types.Float64:
+			if value == "" {
+				return "0.0", nil
+			} else {
+				return "", nil
+			}
 		default:
 			return "", fmt.Errorf("unknown basic type '%s'", t)
 		}
 	default:
 		return "", fmt.Errorf("unknown type '%s'", t)
 	}
+}
+
+func parseSmtFloat(str string) string {
+	return ""
 }

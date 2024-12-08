@@ -18,6 +18,9 @@ func Dynamic() {
 	}
 
 	for _, tc := range testcases {
+		if tc.IsDir() {
+			continue
+		}
 		r := AnalyzeFileDynamic(tc.Name())
 		GenerateTests(tc.Name(), r)
 	}

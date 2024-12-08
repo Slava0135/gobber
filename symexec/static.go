@@ -19,6 +19,9 @@ func Static() {
 	}
 
 	for _, tc := range testcases {
+		if tc.IsDir() {
+			continue
+		}
 		AnalyzeFileStatic(tc.Name())
 	}
 }
