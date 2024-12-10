@@ -77,14 +77,7 @@ func TestDynamic_SoftConstraints(t *testing.T) {
 }
 
 func TestDynamic_Primitives_Doubles(t *testing.T) {
-	checkDynamic(t, []string{
-		"DoubleInfinity",
-		"SimpleMul",
-		"Sum",
-		"Mul",
-		"SimpleSum",
-		"UnaryMinus",
-	}, "primitives/doubles.go")
+	checkDynamic(t, []string{}, "primitives/doubles.go")
 }
 
 func TestDynamic_Primitives_Overflow(t *testing.T) {

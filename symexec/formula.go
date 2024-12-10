@@ -359,6 +359,13 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 		case *Pointer:
 			return result.addr.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Uninterpreted))
 		}
+	case "-":
+		switch arg := arg.(type) {
+		case z3.Int:
+			return result.(z3.Int).Eq(arg.Neg())
+		case z3.Float:
+			return result.(z3.Float).Eq(arg.Neg())
+		}
 	}
 	panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.Sort()))
 }
