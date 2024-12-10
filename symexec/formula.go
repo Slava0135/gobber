@@ -290,8 +290,19 @@ func (bo BinOp) Encode(ctx *EncodingContext) SymValue {
 		switch left := left.(type) {
 		case z3.Int:
 			return res.(z3.Bool).Eq(left.Eq(right.(z3.Int)))
+		case z3.Bool:
+			return res.(z3.Bool).Eq(left.Eq(right.(z3.Bool)))
 		case z3.Float:
 			return res.(z3.Bool).Eq(left.IEEEEq(right.(z3.Float)))
+		}
+	case "!=":
+		switch left := left.(type) {
+		case z3.Int:
+			return res.(z3.Bool).Eq(left.NE(right.(z3.Int)))
+		case z3.Bool:
+			return res.(z3.Bool).Eq(left.NE(right.(z3.Bool)))
+		case z3.Float:
+			return res.(z3.Bool).Eq(left.IEEEEq(right.(z3.Float)).Not())
 		}
 	case "<<":
 		switch left := left.(type) {
@@ -365,6 +376,12 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 			return result.(z3.Int).Eq(arg.Neg())
 		case z3.Float:
 			return result.(z3.Float).Eq(arg.Neg())
+		}
+	case "^":
+		switch arg := arg.(type) {
+		case z3.Int:
+			argBv := arg.ToBV(intSize)
+			return result.(z3.Int).Eq(argBv.Neg().SToInt())
 		}
 	}
 	panic(fmt.Sprintf("unknown unary operation '%s' for sort '%s'", uo.Op, arg.Sort()))
@@ -535,6 +552,14 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 				switch argT.Kind() {
 				case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 					return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
+				}
+			}
+		case types.Bool:
+			switch argT := c.Arg.Type.(type) {
+			case *types.Basic:
+				switch argT.Kind() {
+				case types.Bool:
+					return c.Result.Encode(ctx).(z3.Bool).Eq(c.Arg.Encode(ctx).(z3.Bool))
 				}
 			}
 		case types.Float64:
