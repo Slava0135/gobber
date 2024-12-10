@@ -343,10 +343,20 @@ func solve(fn *ssa.Function, f Formula) (model *z3.Model, sat bool) {
 		ctx.AddVar(v.Name, v.Name, v.Type)
 	}
 
-	encodedFormula := f.Encode(ctx).(z3.Bool)
+	return solveWithTimeout(f.Encode(ctx).(z3.Bool), ctx)
+}
+
+func solveWithTimeout(f z3.Bool, ctx *EncodingContext) (model *z3.Model, sat bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("[WARNING]", r)
+		}
+	}()
+
+	ctx.Config().SetUint("timeout", 15*1000)
 
 	solver := z3.NewSolver(ctx.Context)
-	solver.Assert(encodedFormula)
+	solver.Assert(f)
 	for _, a := range ctx.asserts {
 		solver.Assert(a)
 	}
