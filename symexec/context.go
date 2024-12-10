@@ -50,7 +50,9 @@ func (ctx *EncodingContext) AddType(t types.Type) z3.Sort {
 		switch t := t.(type) {
 		case *types.Basic:
 			switch t.Kind() {
-			case types.Int:
+			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
+				ctx.rawTypes[t.String()] = ctx.IntSort()
+			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 				ctx.rawTypes[t.String()] = ctx.IntSort()
 			case types.Bool:
 				ctx.rawTypes[t.String()] = ctx.BoolSort()
@@ -122,10 +124,50 @@ func (ctx *EncodingContext) AddVar(name string, z3name string, t types.Type) {
 			ctx.vars[name] = i
 			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt, ctx.IntSort()).(z3.Int)))
 			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt, ctx.IntSort()).(z3.Int)))
+		case types.Int8:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt8, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt8, ctx.IntSort()).(z3.Int)))
+		case types.Int16:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt16, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt16, ctx.IntSort()).(z3.Int)))
+		case types.Int32:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt32, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt32, ctx.IntSort()).(z3.Int)))
+		case types.Int64:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxInt64, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(math.MinInt64, ctx.IntSort()).(z3.Int)))
 		case types.Uint:
 			i := ctx.IntConst(z3name)
 			ctx.vars[name] = i
 			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromBigInt(new(big.Int).SetUint64(math.MaxUint), ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
+		case types.Uint8:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxUint8, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
+		case types.Uint16:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxUint16, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
+		case types.Uint32:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromInt(math.MaxUint32, ctx.IntSort()).(z3.Int)))
+			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
+		case types.Uint64:
+			i := ctx.IntConst(z3name)
+			ctx.vars[name] = i
+			ctx.asserts = append(ctx.asserts, i.LE(ctx.FromBigInt(new(big.Int).SetUint64(math.MaxUint64), ctx.IntSort()).(z3.Int)))
 			ctx.asserts = append(ctx.asserts, i.GE(ctx.FromInt(0, ctx.IntSort()).(z3.Int)))
 		case types.Bool:
 			ctx.vars[name] = ctx.BoolConst(z3name)

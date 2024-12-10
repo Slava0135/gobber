@@ -116,13 +116,13 @@ func (v Var) Encode(ctx *EncodingContext) SymValue {
 		switch t := v.Type.(type) {
 		case *types.Basic:
 			switch t.Kind() {
-			case types.Uint:
+			case types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 				i, err := strconv.ParseUint(v.Name, 10, intSize)
 				if err != nil {
 					panic(err)
 				}
 				return ctx.FromBigInt(new(big.Int).SetUint64(i), ctx.IntSort())
-			case types.Int:
+			case types.Int, types.Int8, types.Int16, types.Int32, types.Int64:
 				i, err := strconv.ParseInt(v.Name, 10, intSize)
 				if err != nil {
 					panic(err)
@@ -529,11 +529,11 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 	switch resT := c.Result.Type.(type) {
 	case *types.Basic:
 		switch resT.Kind() {
-		case types.Int, types.Uint:
+		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 			switch argT := c.Arg.Type.(type) {
 			case *types.Basic:
 				switch argT.Kind() {
-				case types.Int, types.Uint:
+				case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 					return c.Result.Encode(ctx).(z3.Int).Eq(c.Arg.Encode(ctx).(z3.Int))
 				}
 			}
@@ -543,7 +543,7 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 				switch argT.Kind() {
 				case types.Float64:
 					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
-				case types.Int, types.Uint:
+				case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).IEEEToFloat(ctx.floatSort))
 				}
 			}
