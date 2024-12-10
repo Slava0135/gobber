@@ -34,24 +34,33 @@ import "testing"
 	for fn, testcases := range functionTestcases {
 		for i, tc := range testcases {
 			vars := parseVars(tc.model)
-			args, err := parseArgs(fn, vars)
+			args, err := initArgs(fn, vars)
 			if err != nil {
 				fmt.Println("[ERROR]", err)
 				continue
 			}
-			argsStr := strings.Join(args, ", ")
 			name := functionName(fn)
+			var argsNames []string
+			for _, param := range fn.Params {
+				name := param.Name()
+				argsNames = append(argsNames, name)
+			}
+			argsStr := strings.Join(argsNames, ", ")
 			f.WriteString(fmt.Sprintf("func Test_%s_%d(t *testing.T) {\n", name, i+1))
 			results := fn.Signature.Results()
 			if results != nil && results.Len() == 1 {
-				res, err := parseResult(results.At(0).Type(), vars)
+				want, err := parseResult(results.At(0).Type(), vars)
 				if err != nil {
 					fmt.Println("[ERROR]", err)
 					continue
 				}
+				for _, code := range args {
+					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(code, "\n", "\n\t")))
+				}
 				f.WriteString(fmt.Sprintf("\tgot := %s(%s)\n", name, argsStr))
-				f.WriteString(fmt.Sprintf("\tif got != %s {\n", res))
-				f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s(%s) = %%v; want %s\", got)\n", name, argsStr, res))
+				f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
+				f.WriteString("\tif got != want {\n")
+				f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s(%s) = %%v; want %%v\", got, want)\n", name, argsStr))
 				f.WriteString("\t}\n")
 			} else {
 				f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, argsStr))
@@ -77,16 +86,16 @@ func parseVars(model *z3.Model) map[string]string {
 	return vars
 }
 
-func parseArgs(fn *ssa.Function, vars map[string]string) ([]string, error) {
-	var args []string
+func initArgs(fn *ssa.Function, vars map[string]string) (map[string]string, error) {
+	args := make(map[string]string)
 	for _, param := range fn.Params {
 		name := param.Name()
 		value := vars[name]
-		goValue, err := parseValue(value, param.Type())
+		code, err := initValue(name, value, param.Type())
 		if err != nil {
 			return nil, err
 		}
-		args = append(args, goValue)
+		args[name] = code
 	}
 	return args, nil
 }
@@ -96,10 +105,10 @@ func parseResult(t types.Type, vars map[string]string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("result not found in model")
 	}
-	return parseValue(value, t)
+	return initValue("want", value, t)
 }
 
-func parseValue(value string, t types.Type) (string, error) {
+func initValue(name string, value string, t types.Type) (string, error) {
 	var trimmed []rune
 	for _, c := range value {
 		switch c {
@@ -113,32 +122,30 @@ func parseValue(value string, t types.Type) (string, error) {
 	switch t := t.(type) {
 	case *types.Basic:
 		switch t.Kind() {
-		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
+		case types.Int:
+			var goValue string
 			if value == "" {
-				return "0", nil
+				goValue = "0"
 			} else {
 				i, err := strconv.ParseInt(value, 10, 64)
 				if err != nil {
 					return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
 				}
-				return fmt.Sprint(i), nil
+				goValue = fmt.Sprint(i)
 			}
+			return fmt.Sprintf("%s := %s", name, goValue), nil
 		case types.Bool:
+			var goValue string
 			if value == "" {
-				return "false", nil
+				goValue = "false"
 			} else {
 				b, err := strconv.ParseBool(value)
 				if err != nil {
 					return "", fmt.Errorf("error when parsing boolean '%s': %w", value, err)
 				}
-				return fmt.Sprint(b), nil
+				goValue = fmt.Sprint(b)
 			}
-		case types.Float64:
-			if value == "" {
-				return "0.0", nil
-			} else {
-				return "", nil
-			}
+			return fmt.Sprintf("%s := %s", name, goValue), nil
 		default:
 			return "", fmt.Errorf("unknown basic type '%s'", t)
 		}
