@@ -28,7 +28,15 @@ func GenerateTests(filename string, functionTestcases map[*ssa.Function][]Testca
 	prelude := `
 package main
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
+
+var (
+	_ = testing.Main
+  _ = math.Abs
+)
 `
 	f.WriteString(strings.Trim(prelude, "\n"))
 	f.WriteString("\n\n")
@@ -200,7 +208,7 @@ func initSmtFloat64(name string, value string) (string, error) {
 			return "", fmt.Errorf("error when parsing float64 '%s': %w", value, err)
 		}
 		f64 := math.Float64frombits(bits)
-		return fmt.Sprintf("%s := %f", name, f64), nil
+		return fmt.Sprintf("%s_bits := uint64(0x%x) // %f\n%s := math.Float64frombits(%s_bits)", name, bits, f64, name, name), nil
 	} else {
 		return "???", nil
 	}
