@@ -210,6 +210,19 @@ func initSmtFloat64(name string, value string) (string, error) {
 		f64 := math.Float64frombits(bits)
 		return fmt.Sprintf("%s_bits := uint64(0x%x) // %f\n%s := math.Float64frombits(%s_bits)", name, bits, f64, name, name), nil
 	} else {
-		return "???", nil
+		switch components[1] {
+		case "+zero":
+			return fmt.Sprintf("%s := 0.0", name), nil
+		case "-zero":
+			return fmt.Sprintf("%s := 0.0\n%s *= -1.0", name, name), nil
+		case "NaN":
+			return fmt.Sprintf("%s := math.NaN()", name), nil
+		case "+oo":
+			return fmt.Sprintf("%s := math.Inf(1)", name), nil
+		case "-oo":
+			return fmt.Sprintf("%s := math.Inf(-1)", name), nil
+		default:
+			return fmt.Sprintf("// %s := %s", name, value), nil
+		}
 	}
 }
