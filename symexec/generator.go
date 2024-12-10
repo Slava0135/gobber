@@ -3,6 +3,7 @@ package symexec
 import (
 	"fmt"
 	"go/types"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -108,7 +109,7 @@ func parseResult(t types.Type, vars map[string]string) (string, error) {
 	return initValue("want", value, t)
 }
 
-func initValue(name string, value string, t types.Type) (string, error) {
+func trim(value string) string {
 	var trimmed []rune
 	for _, c := range value {
 		switch c {
@@ -118,11 +119,15 @@ func initValue(name string, value string, t types.Type) (string, error) {
 			trimmed = append(trimmed, c)
 		}
 	}
-	value = string(trimmed)
+	return string(trimmed)
+}
+
+func initValue(name string, value string, t types.Type) (string, error) {
 	switch t := t.(type) {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.Int:
+			value := trim(value)
 			var goValue string
 			if value == "" {
 				goValue = "0"
@@ -135,6 +140,7 @@ func initValue(name string, value string, t types.Type) (string, error) {
 			}
 			return fmt.Sprintf("%s := %s", name, goValue), nil
 		case types.Bool:
+			value := trim(value)
 			var goValue string
 			if value == "" {
 				goValue = "false"
@@ -146,6 +152,12 @@ func initValue(name string, value string, t types.Type) (string, error) {
 				goValue = fmt.Sprint(b)
 			}
 			return fmt.Sprintf("%s := %s", name, goValue), nil
+		case types.Float64:
+			if value == "" {
+				return fmt.Sprintf("%s := 0.0", name), nil
+			} else {
+				return initSmtFloat64(name, value)
+			}
 		default:
 			return "", fmt.Errorf("unknown basic type '%s'", t)
 		}
@@ -154,6 +166,42 @@ func initValue(name string, value string, t types.Type) (string, error) {
 	}
 }
 
-func parseSmtFloat(str string) string {
-	return ""
+func initSmtFloat64(name string, value string) (string, error) {
+	value = strings.Trim(value, "()")
+	components := strings.Split(value, " ")
+	if len(components) != 4 {
+		return "", fmt.Errorf("expected 4 components for float64: %s", value)
+	}
+	if components[0] != "_" {
+		signBin, ok := strings.CutPrefix(components[1], "#b")
+		if !ok {
+			return "", fmt.Errorf("invalid sign for float64: %s", value)
+		}
+		expBin, ok := strings.CutPrefix(components[2], "#b")
+		if !ok {
+			return "", fmt.Errorf("invalid exponent for float64: %s", value)
+		}
+		mantHex, ok := strings.CutPrefix(components[3], "#x")
+		if !ok {
+			return "", fmt.Errorf("invalid mantissa for float64: %s", value)
+		}
+		signExpBin := signBin + expBin
+		hex := ""
+		for i := 0; i < len(signExpBin); i += 4 {
+			v, err := strconv.ParseUint(signExpBin[i:i+4], 2, 4)
+			if err != nil {
+				return "", fmt.Errorf("error when parsing float64 '%s': %w", value, err)
+			}
+			hex += fmt.Sprintf("%x", v)
+		}
+		hex += mantHex
+		bits, err := strconv.ParseUint(hex, 16, 64)
+		if err != nil {
+			return "", fmt.Errorf("error when parsing float64 '%s': %w", value, err)
+		}
+		f64 := math.Float64frombits(bits)
+		return fmt.Sprintf("%s := %f", name, f64), nil
+	} else {
+		return "???", nil
+	}
 }
