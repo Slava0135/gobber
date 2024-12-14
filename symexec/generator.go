@@ -49,12 +49,6 @@ var (
 				continue
 			}
 			name := functionName(fn)
-			var argsNames []string
-			for _, param := range fn.Params {
-				name := param.Name()
-				argsNames = append(argsNames, name)
-			}
-			argsStr := strings.Join(argsNames, ", ")
 			f.WriteString(fmt.Sprintf("func Test_%s_%d(t *testing.T) {\n", name, i+1))
 			results := fn.Signature.Results()
 			if results != nil && results.Len() == 1 {
@@ -66,13 +60,29 @@ var (
 				for _, code := range args {
 					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(code, "\n", "\n\t")))
 				}
-				f.WriteString(fmt.Sprintf("\tgot := %s(%s)\n", name, argsStr))
-				f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
-				f.WriteString("\tif got != want {\n")
-				f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s(%s) = %%v; want %%v\", got, want)\n", name, argsStr))
-				f.WriteString("\t}\n")
-			} else {
-				f.WriteString(fmt.Sprintf("\t%s(%s)\n", name, argsStr))
+				var argsNames []string
+				for _, param := range fn.Params {
+					argsNames = append(argsNames, param.Name())
+				}
+				if fn.Signature.Recv() == nil {
+					// functions
+					argsStr := strings.Join(argsNames, ", ")
+					call := fmt.Sprintf("%s(%s)", name, argsStr)
+					f.WriteString(fmt.Sprintf("\tgot := %s\n", call))
+					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
+					f.WriteString("\tif got != want {\n")
+					f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s = %%v; want %%v\", got, want)\n", call))
+					f.WriteString("\t}\n")
+				} else {
+					// methods
+					argsStr := strings.Join(argsNames[1:], ", ")
+					call := fmt.Sprintf("%s.%s(%s)", argsNames[0], name, argsStr)
+					f.WriteString(fmt.Sprintf("\tgot := %s\n", call))
+					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
+					f.WriteString("\tif got != want {\n")
+					f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s = %%v; want %%v\", got, want)\n", call))
+					f.WriteString("\t}\n")
+				}
 			}
 			f.WriteString("}\n\n")
 		}
@@ -168,6 +178,13 @@ func initValue(name string, value string, t types.Type) (string, error) {
 			}
 		default:
 			return "", fmt.Errorf("unknown basic type '%s'", t)
+		}
+	case *types.Pointer:
+		switch t := t.Elem().(type) {
+		case *types.Named:
+			return fmt.Sprintf("%s := &%s{}", name, t.Obj().Name()), nil
+		default:
+			return "", fmt.Errorf("unknown pointer type '%s'", t)
 		}
 	default:
 		return "", fmt.Errorf("unknown type '%s'", t)
