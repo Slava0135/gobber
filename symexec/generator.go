@@ -261,7 +261,7 @@ func cmp(t types.Type) string {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.Float64:
-			return "got - want > 1e-6 && !(math.IsNaN(got) && math.IsNaN(want))"
+			return "math.Abs(got - want) > 1e-6 && !(math.IsNaN(got) && math.IsNaN(want))"
 		}
 	}
 	return "got != want"
