@@ -52,7 +52,8 @@ var (
 			f.WriteString(fmt.Sprintf("func Test_%s_%d(t *testing.T) {\n", name, i+1))
 			results := fn.Signature.Results()
 			if results != nil && results.Len() == 1 {
-				want, err := parseResult(results.At(0).Type(), vars)
+				resultT := results.At(0).Type()
+				want, err := parseResult(resultT, vars)
 				if err != nil {
 					fmt.Println("[ERROR]", err)
 					continue
@@ -64,13 +65,14 @@ var (
 				for _, param := range fn.Params {
 					argsNames = append(argsNames, param.Name())
 				}
+				cmp := cmp(resultT)
 				if fn.Signature.Recv() == nil {
 					// functions
 					argsStr := strings.Join(argsNames, ", ")
 					call := fmt.Sprintf("%s(%s)", name, argsStr)
 					f.WriteString(fmt.Sprintf("\tgot := %s\n", call))
 					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
-					f.WriteString("\tif got != want {\n")
+					f.WriteString(fmt.Sprintf("\tif %s {\n", cmp))
 					f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s = %%v; want %%v\", got, want)\n", call))
 					f.WriteString("\t}\n")
 				} else {
@@ -79,7 +81,7 @@ var (
 					call := fmt.Sprintf("%s.%s(%s)", argsNames[0], name, argsStr)
 					f.WriteString(fmt.Sprintf("\tgot := %s\n", call))
 					f.WriteString(fmt.Sprintf("\t%s\n", strings.ReplaceAll(want, "\n", "\n\t")))
-					f.WriteString("\tif got != want {\n")
+					f.WriteString(fmt.Sprintf("\tif %s {\n", cmp))
 					f.WriteString(fmt.Sprintf("\t\tt.Errorf(\"%s = %%v; want %%v\", got, want)\n", call))
 					f.WriteString("\t}\n")
 				}
@@ -252,4 +254,15 @@ func initInt(name string, value string, t string) (string, error) {
 	} else {
 		return fmt.Sprintf("%s := %s", name, goValue), nil
 	}
+}
+
+func cmp(t types.Type) string {
+	switch t := t.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Float64:
+			return "got - want > 1e-6 && !(math.IsNaN(got) && math.IsNaN(want))"
+		}
+	}
+	return "got != want"
 }
