@@ -568,7 +568,7 @@ func (c Convert) Encode(ctx *EncodingContext) SymValue {
 				switch argT.Kind() {
 				case types.Float64:
 					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Float))
-				case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
+				case types.Int:
 					return c.Result.Encode(ctx).(z3.Float).Eq(c.Arg.Encode(ctx).(z3.Int).ToBV(intSize).SToFloat(ctx.floatSort))
 				}
 			}
