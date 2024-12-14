@@ -145,18 +145,9 @@ func initValue(name string, value string, t types.Type) (string, error) {
 	case *types.Basic:
 		switch t.Kind() {
 		case types.Int:
-			value := trim(value)
-			var goValue string
-			if value == "" {
-				goValue = "0"
-			} else {
-				i, err := strconv.ParseInt(value, 10, 64)
-				if err != nil {
-					return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
-				}
-				goValue = fmt.Sprint(i)
-			}
-			return fmt.Sprintf("%s := %s", name, goValue), nil
+			return initInt(name, value, "")
+		case types.Int8, types.Int16, types.Int32, types.Int64:
+			return initInt(name, value, t.Name())
 		case types.Bool:
 			value := trim(value)
 			var goValue string
@@ -241,5 +232,24 @@ func initSmtFloat64(name string, value string) (string, error) {
 		default:
 			return fmt.Sprintf("// %s := %s", name, value), nil
 		}
+	}
+}
+
+func initInt(name string, value string, t string) (string, error) {
+	value = trim(value)
+	var goValue string
+	if value == "" {
+		goValue = "0"
+	} else {
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return "", fmt.Errorf("error when parsing integer '%s': %w", value, err)
+		}
+		goValue = fmt.Sprint(i)
+	}
+	if t != "" {
+		return fmt.Sprintf("%s := %s(%s)", name, t, goValue), nil
+	} else {
+		return fmt.Sprintf("%s := %s", name, goValue), nil
 	}
 }
