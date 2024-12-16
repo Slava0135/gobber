@@ -97,7 +97,7 @@ func (i *InvokeExample) GetNullOrValue(invokeObject *InvokeClass) *InvokeClass {
 
 func (i *InvokeExample) abs(value int) int {
 	if value < 0 {
-		if value == math.MinInt { 
+		if value == math.MinInt {
 			return 0
 		}
 		return i.mult(-1, value)
@@ -264,8 +264,4 @@ func (i *InvokeExample) UpdateValues(fst *InvokeClass, snd *InvokeClass) (int, e
 func (i *InvokeExample) changeTwoObjects(fst *InvokeClass, snd *InvokeClass) {
 	fst.Value = 1
 	snd.Value = 2
-}
-
-func Main() {
-
 }
