@@ -35,7 +35,7 @@ import (
 
 var (
 	_ = testing.Main
-  _ = math.Abs
+	_ = math.Abs
 )
 `
 	f.WriteString(strings.Trim(prelude, "\n"))
