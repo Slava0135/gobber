@@ -14,14 +14,16 @@ import (
 )
 
 const (
-	realFunc = "real"
-	imagFunc = "imag"
-	lenFunc  = "len"
+	realFunc  = "real"
+	imagFunc  = "imag"
+	lenFunc   = "len"
+	mathInf   = "math.Inf"
+	mathIsNaN = "math.IsNaN"
 )
 
 func IsBuiltIn(name string) bool {
 	switch name {
-	case realFunc, imagFunc, lenFunc:
+	case realFunc, imagFunc, lenFunc, mathInf, mathIsNaN:
 		return true
 	default:
 		return false

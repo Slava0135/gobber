@@ -490,6 +490,17 @@ func (f BuiltInCall) Encode(ctx *EncodingContext) SymValue {
 	case lenFunc:
 		arr := f.Args[0].Encode(ctx).(*SymArray)
 		return f.Result.Encode(ctx).(z3.Int).Eq(ctx.arrayLenMemory[arr.t].Select(arr.addr).(z3.Int))
+	case mathInf:
+		arg := f.Args[0].Encode(ctx).(z3.Int)
+		res := f.Result.Encode(ctx).(z3.Float)
+		return arg.GT(ctx.FromInt(0, ctx.IntSort()).(z3.Int)).IfThenElse(
+			res.Eq(ctx.FloatInf(ctx.floatSort, false)),
+			res.Eq(ctx.FloatInf(ctx.floatSort, true)),
+		)
+	case mathIsNaN:
+		arg := f.Args[0].Encode(ctx).(z3.Float)
+		res := f.Result.Encode(ctx).(z3.Bool)
+		return res.Eq(arg.IsNaN())
 	}
 	panic(fmt.Sprintf("unknown function '%s'", f.Name))
 }
