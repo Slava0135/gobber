@@ -127,3 +127,7 @@ func TestDynamic_Arrays_ArrayOverwriteValue(t *testing.T) {
 func TestDynamic_Arrays_PrimitiveArrays(t *testing.T) {
 	checkDynamic(t, []string{}, "arrays/primitiveArrays.go")
 }
+
+func TestDynamic_Mocks_Sqrt(t *testing.T) {
+	checkDynamic(t, []string{}, "mocks/sqrt.go")
+}
