@@ -618,8 +618,9 @@ func (ia IndexAddr) Encode(ctx *EncodingContext) SymValue {
 	array := ia.Array.Encode(ctx).(*SymArray)
 	index := ia.Index.Encode(ctx).(z3.Int)
 	values := ctx.arrayValuesMemory[array.t].Select(array.addr).(z3.Array)
+	len := ctx.arrayLenMemory[array.t].Select(array.addr).(z3.Int)
 	value := values.Select(index).(z3.Uninterpreted)
-	return res.Eq(value)
+	return res.Eq(value).And(index.LT(len))
 }
 
 func (ia IndexAddr) ScanVars(vars map[string]Var) {
