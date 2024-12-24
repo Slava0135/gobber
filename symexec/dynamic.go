@@ -11,6 +11,8 @@ import (
 	"golang.org/x/tools/go/ssa"
 )
 
+const maxDepth = 100
+
 func Dynamic() {
 	os.Chdir("testdata")
 
@@ -63,6 +65,7 @@ func dynamicFunction(fn *ssa.Function, pkg *ssa.Package) []Testcase {
 
 type State struct {
 	nextFrameId int
+	depth       int
 	frames      []*Frame
 }
 
@@ -81,6 +84,7 @@ func (s *State) copy() *State {
 		caller.call.Body[len(caller.call.Body)-1] = callee.call
 	}
 	stateCopy.nextFrameId = s.nextFrameId
+	stateCopy.depth = s.depth
 	return stateCopy
 }
 
@@ -148,6 +152,11 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 	queue.push(&State{frames: []*Frame{entryFrame}})
 	for !queue.empty() {
 		state := queue.pop()
+		state.depth += 1
+		if state.depth >= maxDepth {
+			fmt.Println("[WARNING] max depth reached")
+			continue
+		}
 		frame := state.currentFrame()
 		block := frame.function.Blocks[frame.nextBlock]
 	instructionLoop:
