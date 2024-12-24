@@ -89,14 +89,3 @@ func (a *ArraysOverwriteValue) BooleanArray(arr []bool) int {
 	arr[0] = true
 	return 3
 }
-
-func (a *ArraysOverwriteValue) ObjectArray(arr []*ObjectWithPrimitivesClass) int {
-	if len(arr) == 0 {
-		return 1
-	}
-	if arr[0] == nil {
-		return 2
-	}
-	arr[0] = nil
-	return 3
-}

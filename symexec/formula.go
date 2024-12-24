@@ -87,6 +87,11 @@ type Condition struct {
 	IsTrue bool
 }
 
+type Store struct {
+	Addr  Var
+	Value Var
+}
+
 func removeType(str string) string {
 	return strings.Split(str, ":")[0]
 }
@@ -661,6 +666,35 @@ func (cond Condition) Encode(ctx *EncodingContext) SymValue {
 
 func (cond Condition) ScanVars(vars map[string]Var) {
 	cond.Cond.ScanVars(vars)
+}
+
+func (s Store) String() string {
+	return fmt.Sprintf("*%s = %s", s.Addr, s.Value)
+}
+
+func (s Store) Encode(ctx *EncodingContext) SymValue {
+	addr := s.Addr.Encode(ctx).(*Pointer)
+	value := s.Value.Encode(ctx)
+	switch t := s.Value.Type.(type) {
+	case *types.Basic:
+		switch t.Kind() {
+		case types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
+			ctx.valuesMemory[addr.t] = ctx.valuesMemory[addr.t].Store(addr.addr, value.(z3.Int))
+			return ctx.FromBool(true)
+		case types.Bool:
+			ctx.valuesMemory[addr.t] = ctx.valuesMemory[addr.t].Store(addr.addr, value.(z3.Bool))
+			return ctx.FromBool(true)
+		case types.Float64:
+			ctx.valuesMemory[addr.t] = ctx.valuesMemory[addr.t].Store(addr.addr, value.(z3.Float))
+			return ctx.FromBool(true)
+		}
+	}
+	panic(fmt.Sprintf("unsupported store to '%s'", s.Addr.Type))
+}
+
+func (s Store) ScanVars(vars map[string]Var) {
+	s.Addr.ScanVars(vars)
+	s.Value.ScanVars(vars)
 }
 
 func toYaml(f Formula) string {

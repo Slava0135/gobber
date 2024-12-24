@@ -305,6 +305,11 @@ func execute(fn *ssa.Function, pkg *ssa.Package, queue Queue) []Testcase {
 					Struct: frame.newVar(v.X),
 					Field:  v.Field,
 				})
+			case *ssa.Store:
+				frame.push(Store{
+					Addr:  frame.newVar(v.Addr),
+					Value: frame.newVar(v.Val),
+				})
 			default:
 				panic(fmt.Sprint("unknown instruction: '", v.String(), "'"))
 			}
