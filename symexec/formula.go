@@ -372,7 +372,7 @@ func (uo UnOp) Encode(ctx *EncodingContext) SymValue {
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Bool))
 		case z3.Float:
 			return result.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Float))
-		case *Pointer:
+		case *SymArray:
 			return result.addr.Eq(ctx.valuesMemory[arg.t].Select(arg.addr).(z3.Uninterpreted))
 		}
 	case "-":
@@ -422,6 +422,12 @@ func (ret Return) Encode(ctx *EncodingContext) SymValue {
 			return result.real.Eq(arg.real).And(result.imag.Eq(arg.imag))
 		case *String:
 			return ctx.FromBool(true) // TODO
+		case *SymArray:
+			arg := ret.Results[0].Encode(ctx).(*SymArray)
+			return result.addr.Eq(arg.addr)
+		case *Pointer:
+			arg := ret.Results[0].Encode(ctx).(*Pointer)
+			return result.addr.Eq(arg.addr)
 		}
 		panic(fmt.Sprintf("unknown return sort '%s'", result.Sort()))
 	}
